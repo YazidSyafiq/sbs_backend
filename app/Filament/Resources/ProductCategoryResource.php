@@ -21,16 +21,16 @@ class ProductCategoryResource extends Resource
 
     protected static ?string $navigationGroup = 'Stock Management';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 4;
 
     public static function getModelLabel(): string
     {
-        return 'Product Category';
+        return 'Category';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Product Categories';
+        return 'Categories';
     }
 
     public static function form(Form $form): Form

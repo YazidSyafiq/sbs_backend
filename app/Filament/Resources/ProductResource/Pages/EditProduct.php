@@ -1,20 +1,20 @@
 <?php
 
-namespace App\Filament\Resources\ProductCategoryResource\Pages;
+namespace App\Filament\Resources\ProductResource\Pages;
 
-use App\Filament\Resources\ProductCategoryResource;
+use App\Filament\Resources\ProductResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
 
-class EditProductCategory extends EditRecord
+class EditProduct extends EditRecord
 {
-    protected static string $resource = ProductCategoryResource::class;
+    protected static string $resource = ProductResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\ViewAction::make()
-                ->label('View Category')
+                ->label('View Product')
                 ->color('primary')
                 ->icon('heroicon-s-eye'),
         ];

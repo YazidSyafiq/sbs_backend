@@ -14,7 +14,7 @@ class ViewProductCategory extends ViewRecord
     {
         return [
             Actions\EditAction::make()
-                ->label('Edit')
+                ->label('Edit Category')
                 ->icon('heroicon-s-pencil-square'),
         ];
     }
