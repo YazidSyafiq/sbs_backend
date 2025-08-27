@@ -16,7 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +28,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         'email',
         'password',
         'telepon',
+        'branch_id',
         'image_url',
         'fcm_token',
     ];
@@ -67,6 +68,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
         return $this->image_url
             ? asset('storage/' . $this->image_url) // Gambar avatar pengguna
             : asset('default/images/default_images.jpg'); // Gambar default jika avatar tidak ada
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     protected static function boot()

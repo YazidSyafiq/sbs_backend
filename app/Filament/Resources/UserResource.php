@@ -13,6 +13,10 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
+use Auth;
 
 class UserResource extends Resource
 {
@@ -70,11 +74,43 @@ class UserResource extends Resource
                             ->label('Password')
                             ->placeholder('Enter Password')
                             ->hint('Example: !234sG7B')
+                            ->revealable(fn (string $context): bool => $context !== 'view')
                             ->dehydrateStateUsing(fn ($state) => Hash::make($state))
                             ->dehydrated(fn ($state) => filled($state))
                             ->required(fn (string $context): bool => $context === 'create')
                             ->minLength(8)
                             ->maxLength(255),
+                        Forms\Components\Select::make('roles')
+                            ->relationship('roles', 'name')
+                            ->placeholder('Select Role')
+                            ->required()
+                            ->preload()
+                            ->searchable()
+                            ->columnSpanFull()
+                            ->live()
+                            ->hidden(fn () => !Auth::user()->hasRole('Super Admin')),
+                        Forms\Components\Select::make('branch_id')
+                            ->relationship('branch', 'name')
+                            ->placeholder('Select Branch')
+                            ->required()
+                            ->preload()
+                            ->searchable()
+                            ->columnSpanFull()
+                            ->hidden(function (Get $get) {
+                                $selectedRoles = $get('roles');
+
+                                if (empty($selectedRoles)) {
+                                    return true;
+                                }
+
+                                $userRole = Role::where('name', 'User')->first();
+
+                                if (is_array($selectedRoles)) {
+                                    return !in_array($userRole->id, $selectedRoles);
+                                }
+
+                                return $selectedRoles != $userRole->id;
+                            }),
                     ]),
             ]);
     }
@@ -96,6 +132,15 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('telepon')
                     ->label('Phone')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('branch.name')
+                    ->label('Branch')
+                    ->searchable()
+                    ->getStateUsing(function ($record) {
+                        if ($record->branch_id && $record->branch) {
+                            return $record->branch->name;
+                        }
+                        return 'Central';
+                    }),
             ])
             ->filters([
                 //
