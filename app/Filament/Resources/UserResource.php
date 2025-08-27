@@ -46,6 +46,7 @@ class UserResource extends Resource
                             ->hint('Example: 08123456789')
                             ->maxLength(15),
                         Forms\Components\FileUpload::make('image_url')
+                            ->required()
                             ->label('Upload Photo')
                             ->maxSize(3072)
                             ->disk('public')

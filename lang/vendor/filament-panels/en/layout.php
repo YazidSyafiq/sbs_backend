@@ -7,29 +7,29 @@ return [
     'actions' => [
 
         'billing' => [
-            'label' => 'Manage subscription',
+            'label' => 'Manage Subscription',
         ],
 
         'logout' => [
-            'label' => 'Sign out',
+            'label' => 'Logout',
         ],
 
         'open_database_notifications' => [
-            'label' => 'Open notifications',
+            'label' => 'Open Notifications',
         ],
 
         'open_user_menu' => [
-            'label' => 'User menu',
+            'label' => 'User Menu',
         ],
 
         'sidebar' => [
 
             'collapse' => [
-                'label' => 'Collapse sidebar',
+                'label' => 'Collapse Sidebar',
             ],
 
             'expand' => [
-                'label' => 'Expand sidebar',
+                'label' => 'Expand Sidebar',
             ],
 
         ],
@@ -37,15 +37,15 @@ return [
         'theme_switcher' => [
 
             'dark' => [
-                'label' => 'Enable dark theme',
+                'label' => 'Enable Dark Theme',
             ],
 
             'light' => [
-                'label' => 'Enable light theme',
+                'label' => 'Enable Light Theme',
             ],
 
             'system' => [
-                'label' => 'Enable system theme',
+                'label' => 'Enable System Theme',
             ],
 
         ],
