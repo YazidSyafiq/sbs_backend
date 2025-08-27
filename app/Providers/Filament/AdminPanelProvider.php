@@ -17,6 +17,9 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Http\Request;
+use Filament\View\PanelsRenderHook;
+use Filament\Enums\ThemeMode;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -27,9 +30,25 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->defaultThemeMode(ThemeMode::Dark)
+            ->brandLogo(asset('default/images/img_logo_dark.png'))
+            ->darkModeBrandLogo(asset('default/images/img_logo.png'))
+            ->brandLogoHeight(function (Request $request): string {
+                if ($request->route()->getName() === 'filament.admin.auth.login') {
+                    return '100px';
+                }
+
+                return '50px';
+            })
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn (): string => view('filament.components.login-footer')->render()
+            )
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => '#FDB515',
             ])
+            ->font('Poppins')
+            ->favicon(asset('default/images/img_logo.png'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
