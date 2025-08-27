@@ -6,10 +6,17 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
+use Filament\Panel;
+use Laravel\Sanctum\HasApiTokens;
+use Spatie\Permission\Traits\HasRoles;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
-class User extends Authenticatable
+class User extends Authenticatable implements FilamentUser, HasAvatar
 {
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -20,6 +27,9 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'telepon',
+        'image_url',
+        'fcm_token',
     ];
 
     /**
@@ -43,5 +53,31 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    // Implementasi metode canAccessPanel() dari FilamentUser contract
+    public function canAccessPanel(Panel $panel): bool
+    {
+        // Mengizinkan semua pengguna untuk mengakses panel
+        return true;
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        return $this->image_url
+            ? asset('storage/' . $this->image_url) // Gambar avatar pengguna
+            : asset('default/images/default_images.jpg'); // Gambar default jika avatar tidak ada
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($user) {
+            // Set email_verified_at to current datetime if it's not already set.
+            if (is_null($user->email_verified_at)) {
+                $user->email_verified_at = now();
+            }
+        });
     }
 }

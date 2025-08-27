@@ -46,6 +46,7 @@ class AdminPanelProvider extends PanelProvider
             )
             ->colors([
                 'primary' => '#FDB515',
+                'success' => '#4ECB25',
             ])
             ->font('Poppins')
             ->favicon(asset('default/images/img_logo.png'))
