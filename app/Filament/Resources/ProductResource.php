@@ -12,6 +12,10 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
+use App\Models\Code;
+use Illuminate\Support\Carbon;
 
 class ProductResource extends Resource
 {
@@ -53,7 +57,31 @@ class ProductResource extends Resource
                             ->preload()
                             ->placeholder('Select Category')
                             ->label('Category')
+                            ->live() // Tambahkan live untuk reactive
+                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                // Reset code_id ketika category berubah
+                                $set('code_id', null);
+                            })
                             ->required(),
+                        Forms\Components\Select::make('code_id')
+                            ->options(function (Forms\Get $get) {
+                                $categoryId = $get('category_id');
+                                if (!$categoryId) {
+                                    return [];
+                                }
+
+                                return Code::where('category_id', $categoryId)
+                                    ->where('type', 'Product')
+                                    ->pluck('code', 'id')
+                                    ->toArray();
+                            })
+                            ->hidden(fn (Forms\Get $get) => !$get('category_id'))
+                            ->searchable()
+                            ->preload()
+                            ->placeholder('Select Code')
+                            ->label('Code')
+                            ->required()
+                            ->columnSpanFull(),
                         Forms\Components\TextInput::make('stock')
                             ->required()
                             ->label('Stock')
@@ -68,6 +96,18 @@ class ProductResource extends Resource
                             ->hint('Example: 10000')
                             ->prefix('Rp'),
                     ]),
+                    Forms\Components\Section::make('Product Date Form')
+                    ->collapsible()
+                    ->columns(2)
+                    ->schema([
+                        Forms\Components\DatePicker::make('entry_date')
+                            ->label('Entry Date')
+                            ->placeholder('Select Entry Date')
+                            ->required(),
+                        Forms\Components\DatePicker::make('expiry_date')
+                            ->label('Expiry Date')
+                            ->placeholder('Select Expiry Date'),
+                    ]),
             ]);
     }
 
@@ -75,6 +115,9 @@ class ProductResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('code')
+                    ->label('Code')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('Product Name')
                     ->searchable(),
@@ -92,7 +135,7 @@ class ProductResource extends Resource
                         return 'Rp ' . number_format($state, 0, ',', '.');
                     }),
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Status')
+                    ->label('Stock Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Out of Stock' => 'danger',
@@ -103,6 +146,44 @@ class ProductResource extends Resource
                         'Out of Stock' => 'heroicon-m-x-circle',
                         'Low Stock' => 'heroicon-m-exclamation-triangle',
                         'In Stock' => 'heroicon-m-check-circle',
+                    }),
+                Tables\Columns\TextColumn::make('expiry_date')
+                    ->label('Expiry Date')
+                    ->date()
+                    ->formatStateUsing(function ($state) {
+                        if (!$state) {
+                            return 'No Expiry Date';
+                        }
+
+                        return Carbon::parse($state)->format('d M Y');
+                    })
+                    ->color(function ($record) {
+                        if (!$record->expiry_date) return 'gray';
+
+                        $daysUntilExpiry = now()->diffInDays($record->expiry_date, false);
+
+                        if ($daysUntilExpiry < 0) {
+                            return 'danger';
+                        } elseif ($daysUntilExpiry <= 30) {
+                            return 'warning';
+                        }
+
+                        return 'success';
+                    }),
+                Tables\Columns\TextColumn::make('expiry_status')
+                    ->label('Expiry Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Expired' => 'danger',
+                        'Expiring Soon' => 'warning',
+                        'Fresh' => 'success',
+                        'No Expiry Date' => 'gray',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Expired' => 'heroicon-m-x-circle',
+                        'Expiring Soon' => 'heroicon-m-exclamation-triangle',
+                        'Fresh' => 'heroicon-m-check-circle',
+                        'No Expiry Date' => 'heroicon-m-minus-circle',
                     }),
             ])
             ->filters([

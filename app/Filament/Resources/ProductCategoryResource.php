@@ -21,7 +21,7 @@ class ProductCategoryResource extends Resource
 
     protected static ?string $navigationGroup = 'Stock Management';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 6;
 
     public static function getModelLabel(): string
     {

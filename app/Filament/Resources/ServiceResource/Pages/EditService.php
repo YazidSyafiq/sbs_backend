@@ -1,21 +1,21 @@
 <?php
 
-namespace App\Filament\Resources\ProductResource\Pages;
+namespace App\Filament\Resources\ServiceResource\Pages;
 
-use App\Filament\Resources\ProductResource;
+use App\Filament\Resources\ServiceResource;
 use Filament\Actions;
 use Filament\Resources\Pages\EditRecord;
-use App\Models\Product;
+use App\Models\Service;
 
-class EditProduct extends EditRecord
+class EditService extends EditRecord
 {
-    protected static string $resource = ProductResource::class;
+    protected static string $resource = ServiceResource::class;
 
     protected function getHeaderActions(): array
     {
         return [
             Actions\ViewAction::make()
-                ->label('View Product')
+                ->label('View Service')
                 ->color('primary')
                 ->icon('heroicon-s-eye'),
         ];
@@ -24,7 +24,7 @@ class EditProduct extends EditRecord
     protected function mutateFormDataBeforeSave(array $data): array
     {
         if (isset($data['code_id']) && $data['code_id'] != $this->record->code_id) {
-            $data['code'] = Product::generateCode($data['code_id']);
+            $data['code'] = Service::generateCode($data['code_id']);
         }
 
         return $data;

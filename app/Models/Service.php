@@ -3,24 +3,20 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Carbon;
 
-class Product extends Model
+class Service extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
         'category_id',
-        'stock',
         'price',
         'code_id',
         'code',
-        'entry_date',
-        'expiry_date'
     ];
 
     public function category(): BelongsTo
@@ -31,34 +27,6 @@ class Product extends Model
     public function codeTemplate(): BelongsTo
     {
         return $this->belongsTo(Code::class, 'code_id');
-    }
-
-    public function getStatusAttribute(): string
-    {
-        if ($this->stock <= 0) {
-            return 'Out of Stock';
-        } elseif ($this->stock < 10) {
-            return 'Low Stock';
-        } else {
-            return 'In Stock';
-        }
-    }
-
-    public function getExpiryStatusAttribute(): string
-    {
-        if (!$this->expiry_date) {
-            return 'No Expiry Date';
-        }
-
-        $daysUntilExpiry = Carbon::now()->diffInDays($this->expiry_date, false);
-
-        if ($daysUntilExpiry < 0) {
-            return 'Expired';
-        } elseif ($daysUntilExpiry <= 30) {
-            return 'Expiring Soon';
-        } else {
-            return 'Fresh';
-        }
     }
 
     // Method untuk generate code
