@@ -66,7 +66,7 @@ class CodeResource extends Resource
                             ->searchable()
                             ->preload()
                             ->required(),
-                        Forms\Components\TextArea::make('description')
+                        TextArea::make('description')
                             ->columnSpanFull()
                             ->maxLength(255),
                     ]),
