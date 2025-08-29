@@ -23,6 +23,12 @@ class Product extends Model
         'expiry_date'
     ];
 
+    // PENTING: Tambahkan cast untuk dates
+    protected $casts = [
+        'entry_date' => 'date',
+        'expiry_date' => 'date',
+    ];
+
     public function category(): BelongsTo
     {
         return $this->belongsTo(ProductCategory::class, 'category_id');
