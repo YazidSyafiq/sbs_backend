@@ -50,7 +50,6 @@ class UserResource extends Resource
                             ->hint('Example: 08123456789')
                             ->maxLength(15),
                         Forms\Components\FileUpload::make('image_url')
-                            ->required()
                             ->label('Upload Photo')
                             ->maxSize(3072)
                             ->disk('public')
@@ -88,7 +87,7 @@ class UserResource extends Resource
                             ->searchable()
                             ->columnSpanFull()
                             ->live()
-                            ->hidden(fn () => !Auth::user()->hasRole('Super Admin')),
+                            ->disabled(fn () => Auth::user()->hasRole('User')),
                         Forms\Components\Select::make('branch_id')
                             ->relationship('branch', 'name')
                             ->placeholder('Select Branch')
@@ -96,6 +95,7 @@ class UserResource extends Resource
                             ->preload()
                             ->searchable()
                             ->columnSpanFull()
+                            ->disabled(fn () => Auth::user()->hasRole('User'))
                             ->hidden(function (Get $get) {
                                 $selectedRoles = $get('roles');
 
@@ -118,6 +118,13 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(function (Builder $query) {
+                $is_user = Auth::user()->hasRole('User');
+
+                if ($is_user) {
+                    $query->where('id', Auth::user()->id);
+                }
+            })
             ->columns([
                 Tables\Columns\ImageColumn::make('image_url')
                     ->label('Photo')
