@@ -145,7 +145,7 @@ class Product extends Model
         return 'Stock Available';
     }
 
-    // Method untuk generate code
+   // Method untuk generate code
     public static function generateCode($codeTemplateId): string
     {
         $codeTemplate = Code::find($codeTemplateId);
@@ -153,8 +153,9 @@ class Product extends Model
             return '';
         }
 
-        // Cari nomor urut terakhir untuk code template ini
-        $lastProduct = static::where('code_id', $codeTemplateId)
+        // Cari nomor urut terakhir untuk code template ini (termasuk soft deleted)
+        $lastProduct = static::withTrashed() // Include soft deleted records
+            ->where('code_id', $codeTemplateId)
             ->where('code', 'like', $codeTemplate->code . '-%')
             ->orderByRaw('CAST(SUBSTRING(code, LOCATE("-", code) + 1) AS UNSIGNED) DESC')
             ->first();
