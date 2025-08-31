@@ -62,7 +62,7 @@ class PurchaseProduct extends Model
             $nextNumber = 1;
         }
 
-        return "PO/{$branchCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        return "PO/PRD/{$branchCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
     }
 
     // Calculate total from items
