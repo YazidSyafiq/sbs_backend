@@ -18,12 +18,14 @@ class CheckProductExpiry extends Command
     {
         // Untuk expired products
         $expiredProducts = Product::whereNotNull('expiry_date')
+            ->where('stock', '>', 0)
             ->where('expiry_date', '<', now())
             ->with(['category'])
             ->get();
 
         // Untuk expiring soon products
         $expiringSoonProducts = Product::whereNotNull('expiry_date')
+            ->where('stock', '>', 0)
             ->where('expiry_date', '>=', now())
             ->where('expiry_date', '<=', now()->addDays(30))
             ->with(['category'])

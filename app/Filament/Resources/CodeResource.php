@@ -39,7 +39,6 @@ class CodeResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Code Form')
-                    ->collapsible()
                     ->columns(3)
                     ->schema([
                         Forms\Components\TextInput::make('code')

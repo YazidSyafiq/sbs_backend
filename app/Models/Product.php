@@ -41,9 +41,11 @@ class Product extends Model
 
     public function getStatusAttribute(): string
     {
-        if ($this->stock <= 0) {
+        $displayStock = $this->display_stock; // Gunakan display stock (min 0)
+
+        if ($displayStock <= 0) {
             return 'Out of Stock';
-        } elseif ($this->stock < 10) {
+        } elseif ($displayStock < 10) {
             return 'Low Stock';
         } else {
             return 'In Stock';
@@ -65,6 +67,82 @@ class Product extends Model
         } else {
             return 'Fresh';
         }
+    }
+
+    public function getDisplayStockAttribute(): int
+    {
+        return max(0, $this->stock);
+    }
+
+    public function getOnRequestAttribute(): int
+    {
+       // Hitung total quantity dari semua PO items yang status nya Requested
+        $totalRequested = PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+            $query->whereIn('status', ['Requested']);
+        })
+        ->where('product_id', $this->id)
+        ->sum('quantity');
+
+        return $totalRequested > 0 ? $totalRequested : 0;
+    }
+
+    public function getOnProcessingAttribute(): int
+    {
+       // Hitung total quantity dari semua PO items yang status nya Processing
+        $totalProcessing = PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+            $query->whereIn('status', ['Processing']);
+        })
+        ->where('product_id', $this->id)
+        ->sum('quantity');
+
+        return $totalProcessing > 0 ? $totalProcessing : 0;
+    }
+
+    public function getOnShippedAttribute(): int
+    {
+       // Hitung total quantity dari semua PO items yang status nya Shipped
+        $totalShipped = PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+            $query->whereIn('status', ['Shipped']);
+        })
+        ->where('product_id', $this->id)
+        ->sum('quantity');
+
+        return $totalShipped > 0 ? $totalShipped : 0;
+    }
+
+    public function getOnReceivedAttribute(): int
+    {
+       // Hitung total quantity dari semua PO items yang status nya Received
+        $totalReceived = PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+            $query->whereIn('status', ['Received']);
+        })
+        ->where('product_id', $this->id)
+        ->sum('quantity');
+
+        return $totalReceived > 0 ? $totalReceived : 0;
+    }
+
+    public function getNeedPurchaseAttribute(): int
+    {
+       // Hitung total quantity dari semua PO items yang status nya Requested atau Processing
+        $totalRequested = PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+            $query->whereIn('status', ['Requested', 'Processing']);
+        })
+        ->where('product_id', $this->id)
+        ->sum('quantity');
+
+        $deficit = $totalRequested - $this->attributes['stock']; // Gunakan raw stock value
+
+        return $deficit > 0 ? $deficit : 0;
+    }
+
+    // Accessor untuk Purchase Status
+    public function getPurchaseStatusAttribute(): string
+    {
+        if ($this->need_purchase > 0) {
+            return 'Need Purchase';
+        }
+        return 'Stock Available';
     }
 
     // Method untuk generate code

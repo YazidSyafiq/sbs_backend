@@ -42,7 +42,6 @@ class ProductResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Product Form')
-                    ->collapsible()
                     ->columns(2)
                     ->schema([
                         Forms\Components\TextInput::make('name')
@@ -84,7 +83,7 @@ class ProductResource extends Resource
                             ->columnSpanFull(),
                         Forms\Components\TextInput::make('stock')
                             ->required()
-                            ->label('Stock')
+                            ->label('Ready Stock')
                             ->placeholder('Enter Stock')
                             ->hint('Example: 10')
                             ->numeric(),
@@ -97,7 +96,6 @@ class ProductResource extends Resource
                             ->prefix('Rp'),
                     ]),
                     Forms\Components\Section::make('Product Date Form')
-                    ->collapsible()
                     ->columns(2)
                     ->schema([
                         Forms\Components\DatePicker::make('entry_date')
@@ -124,29 +122,6 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Category')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('stock')
-                    ->label('Stock')
-                    ->numeric(),
-                Tables\Columns\TextColumn::make('price')
-                    ->label('Price')
-                    ->numeric()
-                    ->formatStateUsing(function ($state) {
-                        if (is_null($state)) return '-';
-                        return 'Rp ' . number_format($state, 0, ',', '.');
-                    }),
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Stock Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Out of Stock' => 'danger',
-                        'Low Stock' => 'warning',
-                        'In Stock' => 'success',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'Out of Stock' => 'heroicon-m-x-circle',
-                        'Low Stock' => 'heroicon-m-exclamation-triangle',
-                        'In Stock' => 'heroicon-m-check-circle',
-                    }),
                 Tables\Columns\TextColumn::make('expiry_date')
                     ->label('Expiry Date')
                     ->date()
@@ -185,6 +160,59 @@ class ProductResource extends Resource
                         'Fresh' => 'heroicon-m-check-circle',
                         'No Expiry Date' => 'heroicon-m-minus-circle',
                     }),
+                Tables\Columns\TextColumn::make('price')
+                    ->label('Price')
+                    ->numeric()
+                    ->formatStateUsing(function ($state) {
+                        if (is_null($state)) return '-';
+                        return 'Rp ' . number_format($state, 0, ',', '.');
+                    }),
+                Tables\Columns\TextColumn::make('display_stock')
+                    ->label('Ready Stock')
+                    ->numeric(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Stock Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Out of Stock' => 'danger',
+                        'Low Stock' => 'warning',
+                        'In Stock' => 'success',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Out of Stock' => 'heroicon-m-x-circle',
+                        'Low Stock' => 'heroicon-m-exclamation-triangle',
+                        'In Stock' => 'heroicon-m-check-circle',
+                    }),
+                Tables\Columns\TextColumn::make('need_purchase')
+                    ->label('Need Purchase')
+                    ->numeric()
+                    ->color(fn ($state) => $state > 0 ? 'danger' : null),
+                Tables\Columns\TextColumn::make('purchase_status')
+                    ->label('Purchase Status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Need Purchase' => 'danger',
+                        'Stock Available' => 'success',
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Need Purchase' => 'heroicon-m-x-circle',
+                        'Stock Available' => 'heroicon-m-check-circle',
+                    }),
+                Tables\Columns\TextColumn::make('on_request')
+                    ->label('Request')
+                    ->numeric(),
+                Tables\Columns\TextColumn::make('on_processing')
+                    ->label('Processing')
+                    ->color('warning')
+                    ->numeric(),
+                Tables\Columns\TextColumn::make('on_shipped')
+                    ->label('Shipped')
+                    ->color('info')
+                    ->numeric(),
+                Tables\Columns\TextColumn::make('on_received')
+                    ->label('Received')
+                    ->color('success')
+                    ->numeric(),
             ])
             ->filters([
                 //

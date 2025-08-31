@@ -38,7 +38,6 @@ class ProductCategoryResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Product Category Form')
-                    ->collapsible()
                     ->columns(1)
                     ->schema([
                         Forms\Components\TextInput::make('name')

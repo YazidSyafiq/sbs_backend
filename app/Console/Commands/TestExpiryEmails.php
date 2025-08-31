@@ -22,6 +22,7 @@ class TestExpiryEmails extends Command
             // Get expired products (daysUntilExpiry < 0)
             // Untuk expired products
             $expiredProducts = Product::whereNotNull('expiry_date')
+                ->where('stock', '>', 0)
                 ->where('expiry_date', '<', now())
                 ->with(['category'])
                 ->get();
@@ -39,6 +40,7 @@ class TestExpiryEmails extends Command
             // Get products expiring soon (0 <= daysUntilExpiry <= 30)
             // Untuk expiring soon products
             $expiringSoonProducts = Product::whereNotNull('expiry_date')
+                ->where('stock', '>', 0)
                 ->where('expiry_date', '>=', now())
                 ->where('expiry_date', '<=', now()->addDays(30))
                 ->with(['category'])

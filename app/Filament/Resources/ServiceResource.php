@@ -39,7 +39,6 @@ class ServiceResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Service Form')
-                    ->collapsible()
                     ->columns(2)
                     ->schema([
                         Forms\Components\TextInput::make('name')

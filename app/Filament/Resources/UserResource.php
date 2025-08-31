@@ -33,7 +33,6 @@ class UserResource extends Resource
         return $form
             ->schema([
                 Forms\Components\Section::make('Profile Form')
-                    ->collapsible()
                     ->columns(2)
                     ->schema([
                         Forms\Components\TextInput::make('name')
@@ -58,7 +57,6 @@ class UserResource extends Resource
                             ->image(),
                     ]),
                 Forms\Components\Section::make('Account Form')
-                    ->collapsible()
                     ->columns(2)
                     ->schema([
                         Forms\Components\TextInput::make('email')
