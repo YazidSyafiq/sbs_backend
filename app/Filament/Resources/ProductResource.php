@@ -79,19 +79,25 @@ class ProductResource extends Resource
                             ->preload()
                             ->placeholder('Select Code')
                             ->label('Code')
-                            ->required()
-                            ->columnSpanFull(),
+                            ->required(),
                         Forms\Components\TextInput::make('stock')
                             ->required()
                             ->label('Ready Stock')
                             ->placeholder('Enter Stock')
                             ->hint('Example: 10')
                             ->numeric(),
+                        Forms\Components\TextInput::make('supplier_price')
+                            ->required()
+                            ->numeric()
+                            ->label('Cost Price')
+                            ->placeholder('Enter Cost Price')
+                            ->hint('Example: 10000')
+                            ->prefix('Rp'),
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
-                            ->label('Price')
-                            ->placeholder('Enter Price')
+                            ->label('Selling Price')
+                            ->placeholder('Enter Selling Price')
                             ->hint('Example: 10000')
                             ->prefix('Rp'),
                     ]),
@@ -160,8 +166,15 @@ class ProductResource extends Resource
                         'Fresh' => 'heroicon-m-check-circle',
                         'No Expiry Date' => 'heroicon-m-minus-circle',
                     }),
+                Tables\Columns\TextColumn::make('supplier_price')
+                    ->label('Cost Price')
+                    ->numeric()
+                    ->formatStateUsing(function ($state) {
+                        if (is_null($state)) return '-';
+                        return 'Rp ' . number_format($state, 0, ',', '.');
+                    }),
                 Tables\Columns\TextColumn::make('price')
-                    ->label('Price')
+                    ->label('Selling Price')
                     ->numeric()
                     ->formatStateUsing(function ($state) {
                         if (is_null($state)) return '-';

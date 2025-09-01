@@ -17,6 +17,7 @@ class Product extends Model
         'category_id',
         'stock',
         'price',
+        'supplier_price',
         'code_id',
         'code',
         'entry_date',

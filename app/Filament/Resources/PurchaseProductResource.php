@@ -258,8 +258,7 @@ class PurchaseProductResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('po_number')
                     ->label('PO Number')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('name')
                     ->label('PO Name')
                     ->searchable()
@@ -315,7 +314,7 @@ class PurchaseProductResource extends Resource
                     ->icon('heroicon-m-arrows-pointing-in')
                     ->color('primary')
                     ->action(function (PurchaseProduct $record) {
-                        $record->process(); // Hanya ubah status PO ke Processing dan kurangi stock
+                        $record->process();
 
                         Notification::make()
                             ->title('PO Processed Successfully')
