@@ -604,11 +604,12 @@ class PurchaseProductResource extends Resource
 
                             // Jika bukan User role, bisa edit selain status Done
                             if (!$user->hasRole('User')) {
-                                return $record->status !== 'Done';
-                            }
 
-                            if($record->status === 'Done' || $record->status === 'Cancelled') {
-                                return false;
+                                if($record->status === 'Done' || $record->status === 'Cancelled') {
+                                    return false;
+                                }
+
+                                return $record->status !== 'Done';
                             }
 
                             // Jika User role
