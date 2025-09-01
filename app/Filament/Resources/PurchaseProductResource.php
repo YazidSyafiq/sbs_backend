@@ -454,7 +454,7 @@ class PurchaseProductResource extends Resource
                             ->duration(5000)
                             ->send();
                     })
-                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Draft')
+                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Draft' && Auth::user()->hasRole('User'))
                     ->requiresConfirmation()
                     ->modalHeading('Submit Purchase Request')
                     ->modalDescription(function (PurchaseProduct $record) {
