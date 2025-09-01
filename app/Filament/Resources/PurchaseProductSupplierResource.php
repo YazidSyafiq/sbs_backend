@@ -31,12 +31,12 @@ class PurchaseProductSupplierResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Product';
+        return 'Purchase Product (Supplier)';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Products';
+        return 'Purchase Products (Supplier)';
     }
 
     public static function form(Form $form): Form
