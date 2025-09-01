@@ -623,6 +623,10 @@ class PurchaseProductResource extends Resource
                                 if ($record->type_po === 'credit') {
                                     return $record->status !== 'Done';
                                 }
+
+                                if($record->status === 'Done' || $record->status === 'Cancelled') {
+                                    return false;
+                                }
                             }
 
                             return false;
