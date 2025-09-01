@@ -12,7 +12,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Filament\Components\TextArea;
+use Filament\Forms\Components\Textarea;
 
 class SupplierResource extends Resource
 {
