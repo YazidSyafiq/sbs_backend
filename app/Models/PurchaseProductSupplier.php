@@ -60,21 +60,40 @@ class PurchaseProductSupplier extends Model
         // Format YYYYMM dari order date
         $yearMonth = Carbon::parse($orderDate)->format('Ym');
 
-        // Cari nomor urut terakhir dengan format yang sama (termasuk soft deleted)
-        $lastPo = static::withTrashed() // Include soft deleted records
-            ->where('po_number', 'like', "PO/{$supplierCode}/{$yearMonth}/%")
-            ->orderByRaw('CAST(SUBSTRING_INDEX(po_number, "/", -1) AS UNSIGNED) DESC')
-            ->first();
+        // Loop untuk mencari nomor yang belum digunakan
+        $nextNumber = 1;
+        $maxAttempts = 1000; // Batasi attempt untuk menghindari infinite loop
 
-        if ($lastPo) {
-            // Extract nomor dari PO number terakhir
-            $lastNumber = (int) substr($lastPo->po_number, strrpos($lastPo->po_number, '/') + 1);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            // Cari nomor urut terakhir dengan format yang sama (termasuk soft deleted)
+            $lastPo = static::withTrashed() // Include soft deleted records
+                ->where('po_number', 'like', "PO/{$supplierCode}/{$yearMonth}/%")
+                ->orderByRaw('CAST(SUBSTRING_INDEX(po_number, "/", -1) AS UNSIGNED) DESC')
+                ->first();
+
+            if ($lastPo) {
+                // Extract nomor dari PO number terakhir
+                $lastNumber = (int) substr($lastPo->po_number, strrpos($lastPo->po_number, '/') + 1);
+                $nextNumber = $lastNumber + 1;
+            }
+
+            $poNumber = "PO/{$supplierCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+            // Cek apakah nomor sudah ada (termasuk soft deleted)
+            $exists = static::withTrashed()
+                ->where('po_number', $poNumber)
+                ->exists();
+
+            if (!$exists) {
+                return $poNumber;
+            }
+
+            // Jika masih ada yang sama, increment dan coba lagi
+            $nextNumber++;
         }
 
-        return "PO/{$supplierCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        // Fallback jika semua attempt gagal - gunakan timestamp untuk uniqueness
+        return "PO/{$supplierCode}/{$yearMonth}/" . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
     }
 
     // Calculate total

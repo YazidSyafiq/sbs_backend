@@ -47,6 +47,13 @@ class AdminPanelProvider extends PanelProvider
             ->colors([
                 'primary' => '#FDB515',
                 'success' => '#4ECB25',
+                'slate' => '#64748B',     // Abu-abu gelap untuk Draft
+                'amber' => '#F59E0B',     // Kuning keemasan untuk Requested
+                'blue' => '#3B82F6',      // Biru untuk Processing
+                'purple' => '#8B5CF6',    // Ungu untuk Shipped
+                'green' => '#10B981',     // Hijau untuk Received
+                'emerald' => '#059669',   // Hijau emerald untuk Done
+                'red' => '#EF4444',       // Merah untuk Cancelled
             ])
             ->font('Poppins')
             ->favicon(asset('default/images/img_logo.png'))

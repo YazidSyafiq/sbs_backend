@@ -22,6 +22,9 @@ class PurchaseProduct extends Model
         'status',
         'total_amount',
         'notes',
+        'type_po',
+        'status_paid',
+        'bukti_tf',
     ];
 
     protected $casts = [
@@ -48,21 +51,40 @@ class PurchaseProduct extends Model
         // Format YYYYMM dari order date
         $yearMonth = Carbon::parse($orderDate)->format('Ym');
 
-        // Cari nomor urut terakhir dengan format yang sama (termasuk soft deleted)
-        $lastPo = static::withTrashed() // Include soft deleted records
-            ->where('po_number', 'like', "PO/{$branchCode}/{$yearMonth}/%")
-            ->orderByRaw('CAST(SUBSTRING_INDEX(po_number, "/", -1) AS UNSIGNED) DESC')
-            ->first();
+        // Loop untuk mencari nomor yang belum digunakan
+        $nextNumber = 1;
+        $maxAttempts = 1000; // Batasi attempt untuk menghindari infinite loop
 
-        if ($lastPo) {
-            // Extract nomor dari PO number terakhir
-            $lastNumber = (int) substr($lastPo->po_number, strrpos($lastPo->po_number, '/') + 1);
-            $nextNumber = $lastNumber + 1;
-        } else {
-            $nextNumber = 1;
+        for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
+            // Cari nomor urut terakhir dengan format yang sama (termasuk soft deleted)
+            $lastPo = static::withTrashed() // Include soft deleted records
+                ->where('po_number', 'like', "PO/PRD/{$branchCode}/{$yearMonth}/%")
+                ->orderByRaw('CAST(SUBSTRING_INDEX(po_number, "/", -1) AS UNSIGNED) DESC')
+                ->first();
+
+            if ($lastPo) {
+                // Extract nomor dari PO number terakhir
+                $lastNumber = (int) substr($lastPo->po_number, strrpos($lastPo->po_number, '/') + 1);
+                $nextNumber = $lastNumber + 1;
+            }
+
+            $poNumber = "PO/PRD/{$branchCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+
+            // Cek apakah nomor sudah ada (termasuk soft deleted)
+            $exists = static::withTrashed()
+                ->where('po_number', $poNumber)
+                ->exists();
+
+            if (!$exists) {
+                return $poNumber;
+            }
+
+            // Jika masih ada yang sama, increment dan coba lagi
+            $nextNumber++;
         }
 
-        return "PO/PRD/{$branchCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+        // Fallback jika semua attempt gagal
+        return "PO/PRD/{$branchCode}/{$yearMonth}/" . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
     }
 
     // Calculate total from items
@@ -70,6 +92,52 @@ class PurchaseProduct extends Model
     {
         $this->total_amount = $this->items()->sum('total_price');
         $this->save();
+    }
+
+    public function canBeRequested(): array
+    {
+        $validationErrors = [];
+
+        // Cek apakah ada items
+        if ($this->items()->count() === 0) {
+            $validationErrors[] = 'Purchase order must have at least one item';
+        }
+
+        // Cek validasi berdasarkan type_po
+        if ($this->type_po === 'cash') {
+            // Untuk cash purchase, harus sudah bayar dan ada bukti transfer
+            if ($this->status_paid !== 'paid') {
+                $validationErrors[] = 'Cash purchase requires payment status to be "Paid"';
+            }
+
+            if (empty($this->bukti_tf)) {
+                $validationErrors[] = 'Cash purchase requires payment receipt upload';
+            }
+        }
+
+        // Cek apakah name sudah diisi
+        if (empty($this->name)) {
+            $validationErrors[] = 'PO Name is required';
+        }
+
+        return [
+            'can_request' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function request(): bool
+    {
+        $requestCheck = $this->canBeRequested();
+
+        if (!$requestCheck['can_request']) {
+            return false;
+        }
+
+        $this->status = 'Requested';
+        $this->save();
+
+        return true;
     }
 
     public function process(): void
@@ -142,5 +210,41 @@ class PurchaseProduct extends Model
     {
         $this->status = 'Received';
         $this->save();
+    }
+
+    public function canBeCompleted(): array
+    {
+        $validationErrors = [];
+
+        // Cek validasi untuk credit purchase
+        if ($this->type_po === 'credit') {
+            // Untuk credit purchase, harus sudah bayar dan ada bukti transfer
+            if ($this->status_paid !== 'paid') {
+                $validationErrors[] = 'Credit purchase requires payment status to be "Paid"';
+            }
+
+            if (empty($this->bukti_tf)) {
+                $validationErrors[] = 'Credit purchase requires payment receipt upload';
+            }
+        }
+
+        return [
+            'can_complete' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function done(): bool
+    {
+        $requestCheck = $this->canBeCompleted();
+
+        if (!$requestCheck['can_complete']) {
+            return false;
+        }
+
+        $this->status = 'Done';
+        $this->save();
+
+        return true;
     }
 }

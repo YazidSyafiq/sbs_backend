@@ -55,14 +55,27 @@ class PurchaseProductResource extends Resource
                             })
                             ->disabled()
                             ->dehydrated()
+                            ->columnSpanFull()
                             ->required(),
                         Forms\Components\TextInput::make('name')
                             ->label('PO Name')
                             ->placeholder('Enter PO Name')
                             ->hint('Example: Monthly Stock Replenishment')
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested')
+                            ->disabled(fn (Get $get) => $get('status') !== 'Draft')
                             ->required()
                             ->maxLength(255),
+                        Forms\Components\Select::make('type_po')
+                            ->options([
+                                'credit' => 'Credit Purchase',
+                                'cash' => 'Cash Purchase',
+                            ])
+                            ->label('Type Purchase')
+                            ->placeholder('Select Type Purchase')
+                            ->searchable()
+                            ->preload()
+                            ->disabled(fn (Get $get) => $get('status') !== 'Draft')
+                            ->dehydrated()
+                            ->required(),
                         Forms\Components\Select::make('user_id')
                             ->relationship('user', 'name')
                             ->label('Requested By')
@@ -88,13 +101,15 @@ class PurchaseProductResource extends Resource
                             ->live(),
                         Forms\Components\Select::make('status')
                             ->options([
+                                'Draft' => 'Draft',
                                 'Requested' => 'Requested',
                                 'Processing' => 'Processing',
                                 'Shipped' => 'Shipped',
                                 'Received' => 'Received',
+                                'Done' => 'Done',
                                 'Cancelled' => 'Cancelled',
                             ])
-                            ->default('Requested')
+                            ->default('Draft')
                             ->columnSpanFull()
                             ->disabled()
                             ->hidden(fn (string $context) => $context === 'create' && Auth::user()->hasRole('User'))
@@ -136,7 +151,7 @@ class PurchaseProductResource extends Resource
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->disabled(fn (Get $get) => $get('../../status') === 'Processing')
+                                    ->disabled(fn (Get $get) => $get('../../status') !== 'Draft')
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
                                             $product = Product::find($state);
@@ -149,7 +164,7 @@ class PurchaseProductResource extends Resource
                                     ->required()
                                     ->live()
                                     ->dehydrated()
-                                    ->disabled(fn (Get $get) => $get('../../status') === 'Processing')
+                                    ->disabled(fn (Get $get) => $get('../../status') !== 'Draft')
                                     ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                         $unitPrice = $get('unit_price') ?? 0;
                                         $set('total_price', $state * $unitPrice);
@@ -179,8 +194,8 @@ class PurchaseProductResource extends Resource
                                     ->label('Add Product')
                                     ->icon('heroicon-m-plus')
                             )
-                            ->disabled(fn (Get $get) => $get('status') === 'Shipped')
-                            ->deletable(fn (Get $get) => $get('status') === 'Requested')
+                            ->disabled(fn (Get $get) => $get('status') !== 'Draft')
+                            ->deletable(fn (Get $get) => $get('status') === 'Draft')
                             ->reorderable()
                             ->collapsible()
                             ->minItems(1)
@@ -234,6 +249,53 @@ class PurchaseProductResource extends Resource
                             })
                             ->dehydrated(),
                     ]),
+                Forms\Components\Section::make('Payment Information')
+                    ->columns(1)
+                    ->hidden(fn (string $context) => $context === 'create')
+                    ->schema([
+                        Forms\Components\Select::make('status_paid')
+                            ->options([
+                                'unpaid' => 'Unpaid',
+                                'paid' => 'Paid',
+                            ])
+                            ->label('Payment Status')
+                            ->placeholder('Select Payment Status')
+                            ->searchable()
+                            ->preload()
+                            ->dehydrated()
+                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->required(),
+                        Forms\Components\FileUpload::make('bukti_tf')
+                            ->label('Upload Payment Receipt')
+                            ->maxSize(3072)
+                            ->disk('public')
+                            ->columnSpanFull()
+                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->directory('po_product')
+                            ->required(function (PurchaseProduct $record) {
+                                $user = Auth::user();
+
+                                // Jika status Draft, semua bisa cancel
+                                if ($record->status === 'Draft' && $record->type_po === 'cash') {
+                                    return true;
+                                }
+
+                                // Jika status Requested
+                                if ($record->status !== 'Draft') {
+                                    // Hanya credit PO yang bisa di-cancel saat status Requested
+                                    if ($record->type_po === 'credit' && $record->status === 'Received') {
+                                        return true;
+                                    }
+
+                                    // Cash PO tidak bisa di-cancel setelah requested
+                                    return false;
+                                }
+
+                                // Status lain tidak bisa cancel
+                                return false;
+                            })
+                            ->image(),
+                    ]),
                 Textarea::make('notes')
                     ->columnSpanFull()
                     ->rows(3)
@@ -266,17 +328,28 @@ class PurchaseProductResource extends Resource
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Requested By')
                     ->searchable(),
+                Tables\Columns\TextColumn::make('type_po')
+                    ->label('Type Purchase')
+                    ->badge()
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'credit' => 'Credit Purchase',
+                        'cash' => 'Cash Purchase',
+                        default => ucfirst($state) . ' Purchase'
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'credit' => 'warning',
+                        'cash' => 'success'
+                    }),
                 Tables\Columns\TextColumn::make('order_date')
                     ->label('Order Date')
                     ->date(),
-                Tables\Columns\TextColumn::make('status')
+                Tables\Columns\TextColumn::make('status_paid')
+                    ->label('Payment Status')
                     ->badge()
+                    ->formatStateUsing(fn (string $state): string => ucfirst($state))
                     ->color(fn (string $state): string => match ($state) {
-                        'Requested' => 'gray',
-                        'Processing' => 'warning',
-                        'Shipped' => 'info',
-                        'Received' => 'success',
-                        'Cancelled' => 'danger',
+                        'unpaid' => 'danger',
+                        'paid' => 'success'
                     }),
                 Tables\Columns\TextColumn::make('items_count')
                     ->label('Items')
@@ -286,6 +359,17 @@ class PurchaseProductResource extends Resource
                     ->formatStateUsing(function ($state) {
                         return 'Rp ' . number_format($state, 0, ',', '.');
                     }),
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
+                    ->color(fn (string $state): string => match ($state) {
+                        'Draft' => 'slate',       // Abu-abu gelap untuk draft
+                        'Requested' => 'amber',   // Kuning untuk menunggu approval
+                        'Processing' => 'blue',   // Biru untuk sedang diproses
+                        'Shipped' => 'purple',    // Ungu untuk sudah dikirim
+                        'Received' => 'emerald',    // Hijau untuk sudah diterima
+                        'Done' => 'success',      // Hijau success untuk selesai
+                        'Cancelled' => 'red',     // Merah untuk dibatalkan
+                    }),
             ])
             ->filters([
                 //
@@ -294,7 +378,7 @@ class PurchaseProductResource extends Resource
                 Tables\Actions\Action::make('cancel')
                     ->label('Cancel')
                     ->icon('heroicon-c-x-circle')
-                    ->color('danger')
+                    ->color('red')
                     ->action(function (PurchaseProduct $record) {
                         $record->cancel();
 
@@ -305,14 +389,84 @@ class PurchaseProductResource extends Resource
                             ->duration(5000)
                             ->send();
                     })
-                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Requested')
+                    ->visible(function (PurchaseProduct $record) {
+                        $user = Auth::user();
+
+                        // Jika status Draft, semua bisa cancel
+                        if ($record->status === 'Draft') {
+                            return true;
+                        }
+
+                        // Jika status Requested
+                        if ($record->status === 'Requested') {
+                            // Hanya credit PO yang bisa di-cancel saat status Requested
+                            if ($record->type_po === 'credit') {
+                                return true;
+                            }
+
+                            // Cash PO tidak bisa di-cancel setelah requested
+                            return false;
+                        }
+
+                        // Status lain tidak bisa cancel
+                        return false;
+                    })
                     ->requiresConfirmation()
                     ->modalHeading('Cancel Purchase Order')
-                    ->modalDescription('Do you want to cancel this purchase order?'),
+                    ->modalDescription(function (PurchaseProduct $record) {
+                        if ($record->type_po === 'cash' && $record->status === 'Requested') {
+                            return 'Note: Cash purchase orders cannot be cancelled after submission due to payment processing.';
+                        }
+                        return 'Do you want to cancel this purchase order?';
+                    }),
+                Tables\Actions\Action::make('request')
+                    ->label('Request')
+                    ->icon('heroicon-m-paper-airplane')
+                    ->color('amber')
+                    ->action(function (PurchaseProduct $record) {
+                        $requestCheck = $record->canBeRequested();
+
+                        if (!$requestCheck['can_request']) {
+                            $title = "Cannot Submit Request";
+                            $message = "";
+
+                            foreach ($requestCheck['validation_errors'] as $error) {
+                                $message .= "⚠️ {$error}<br><br>";
+                            }
+
+                            Notification::make()
+                                ->title($title)
+                                ->body($message)
+                                ->danger()
+                                ->persistent()
+                                ->duration(8000)
+                                ->send();
+
+                            return;
+                        }
+
+                        $record->request();
+
+                        Notification::make()
+                            ->title('PO Requested Successfully')
+                            ->body("Purchase order {$record->po_number} has been submitted for processing.")
+                            ->success()
+                            ->duration(5000)
+                            ->send();
+                    })
+                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Draft')
+                    ->requiresConfirmation()
+                    ->modalHeading('Submit Purchase Request')
+                    ->modalDescription(function (PurchaseProduct $record) {
+                        if ($record->type_po === 'cash') {
+                            return 'Submit this cash purchase request? Make sure payment has been completed and receipt uploaded.';
+                        }
+                        return 'Submit this credit purchase request for processing?';
+                    }),
                 Tables\Actions\Action::make('process')
                     ->label('Process')
                     ->icon('heroicon-m-arrows-pointing-in')
-                    ->color('primary')
+                    ->color('blue')
                     ->action(function (PurchaseProduct $record) {
                         $record->process();
 
@@ -320,7 +474,7 @@ class PurchaseProductResource extends Resource
                             ->title('PO Processed Successfully')
                             ->body("Purchase order {$record->po_number} has been approved and is now being processed.")
                             ->success()
-                            ->duration(5000) // Auto close after 1 second
+                            ->duration(5000)
                             ->send();
                     })
                     ->visible(fn (PurchaseProduct $record) => $record->status === 'Requested' && !Auth::user()->hasRole('User'))
@@ -330,7 +484,7 @@ class PurchaseProductResource extends Resource
                 Tables\Actions\Action::make('ship')
                     ->label('Ship')
                     ->icon('heroicon-m-truck')
-                    ->color('info')
+                    ->color('purple')
                     ->action(function (PurchaseProduct $record) {
                         $shipCheck = $record->canBeShipped();
 
@@ -338,14 +492,12 @@ class PurchaseProductResource extends Resource
                             $title = "Cannot Ship {$record->po_number}";
                             $message = "";
 
-                            // Tampilkan validation errors dulu
                             if (!empty($shipCheck['validation_errors'])) {
                                 foreach ($shipCheck['validation_errors'] as $error) {
                                     $message .= "⚠️ {$error}<br><br>";
                                 }
                             }
 
-                            // Kemudian tampilkan insufficient stock
                             if (!empty($shipCheck['insufficient_items'])) {
                                 $insufficientCount = count($shipCheck['insufficient_items']);
                                 $message .= "{$insufficientCount} item(s) have insufficient stock:<br><br>";
@@ -384,9 +536,9 @@ class PurchaseProductResource extends Resource
                         return Auth::user()->hasRole('User') ? 'Mark Received' : 'Confirm Receipt';
                     })
                     ->icon('heroicon-m-check-circle')
-                    ->color('success')
+                    ->color('emerald')
                     ->action(function (PurchaseProduct $record) {
-                        $record->update(['status' => 'Received']);
+                        $record->received();
 
                         Notification::make()
                             ->title('PO Received Successfully')
@@ -405,10 +557,71 @@ class PurchaseProductResource extends Resource
                             ? 'Confirm that you have received all items from this purchase order?'
                             : 'Confirm that all items in this purchase order have been received?';
                     }),
+                Tables\Actions\Action::make('complete')
+                    ->label('Done')
+                    ->icon('heroicon-m-check-badge')
+                    ->color('success')
+                    ->action(function (PurchaseProduct $record) {
+                        $completeCheck = $record->canBeCompleted();
+
+                        if (!$completeCheck['can_complete']) {
+                            $title = "Cannot Complete PO";
+                            $message = "";
+
+                            foreach ($completeCheck['validation_errors'] as $error) {
+                                $message .= "⚠️ {$error}<br><br>";
+                            }
+
+                            Notification::make()
+                                ->title($title)
+                                ->body($message)
+                                ->danger()
+                                ->persistent()
+                                ->duration(8000)
+                                ->send();
+
+                            return;
+                        }
+
+                        $record->done();
+
+                        Notification::make()
+                            ->title('PO Completed Successfully')
+                            ->body("Purchase order {$record->po_number} has been completed.")
+                            ->success()
+                            ->duration(5000)
+                            ->send();
+                    })
+                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Received')
+                    ->requiresConfirmation()
+                    ->modalHeading('Complete Purchase Order')
+                    ->modalDescription('Mark this purchase order as done? This action cannot be undone.'),
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
-                        ->visible(fn (PurchaseProduct $record) => $record->status === 'Requested' || !Auth::user()->hasRole('User')),
+                        ->visible(function (PurchaseProduct $record) {
+                            $user = Auth::user();
+
+                            // Jika bukan User role, bisa edit selain status Done
+                            if (!$user->hasRole('User')) {
+                                return $record->status !== 'Done';
+                            }
+
+                            // Jika User role
+                            if ($user->hasRole('User')) {
+                                // Cash PO: hanya bisa edit saat Draft
+                                if ($record->type_po === 'cash') {
+                                    return $record->status === 'Draft';
+                                }
+
+                                // Credit PO: bisa edit kecuali saat Done
+                                if ($record->type_po === 'credit') {
+                                    return $record->status !== 'Done';
+                                }
+                            }
+
+                            return false;
+                        }),
                 ])
                     ->link()
                     ->color('gray')

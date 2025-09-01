@@ -57,8 +57,9 @@ class ProductResource extends Resource
                             ->placeholder('Select Category')
                             ->label('Category')
                             ->live() // Tambahkan live untuk reactive
-                            ->afterStateUpdated(function ($state, Forms\Set $set) {
+                            ->afterStateUpdated(function ($state, Set $set) {
                                 // Reset code_id ketika category berubah
+                                $set('show_code', '1');
                                 $set('code_id', null);
                             })
                             ->required(),
@@ -78,11 +79,15 @@ class ProductResource extends Resource
                             ->searchable()
                             ->preload()
                             ->placeholder('Select Code')
+                            ->live() // Tambahkan live untuk reactive
                             ->label('Code')
                             ->required(),
                         Forms\Components\TextInput::make('stock')
                             ->required()
                             ->label('Ready Stock')
+                            ->columnSpan(function (Get $get, string $context) {
+                                return $get('show_code') === null && $context === 'create' ? 'full' : 1;
+                            })
                             ->placeholder('Enter Stock')
                             ->hint('Example: 10')
                             ->numeric(),
