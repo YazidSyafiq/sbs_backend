@@ -607,6 +607,10 @@ class PurchaseProductResource extends Resource
                                 return $record->status !== 'Done';
                             }
 
+                            if($record->status === 'Done' || $record->status === 'Cancelled') {
+                                return false;
+                            }
+
                             // Jika User role
                             if ($user->hasRole('User')) {
                                 // Cash PO: hanya bisa edit saat Draft
