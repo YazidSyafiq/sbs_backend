@@ -17,6 +17,7 @@
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
+        "mpdf/mpdf": "^8.2",
         "pxlrbt/filament-excel": "^2.3"
     },
     "require-dev": {
@@ -33,7 +34,10 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
-        }
+        },
+        "files": [
+            "app/Helpers/NumberHelper.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

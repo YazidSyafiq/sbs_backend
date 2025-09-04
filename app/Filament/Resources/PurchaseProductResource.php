@@ -597,6 +597,20 @@ class PurchaseProductResource extends Resource
                     ->modalHeading('Complete Purchase Order')
                     ->modalDescription('Mark this purchase order as done? This action cannot be undone.'),
                 Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('view_invoice')
+                        ->label('Invoice')
+                        ->icon('heroicon-m-document-text')
+                        ->color('info')
+                        ->url(fn (PurchaseProduct $record): string => route('purchase-product.invoice', $record))
+                        ->openUrlInNewTab()
+                        ->visible(fn (PurchaseProduct $record) => in_array($record->status, ['Requested', 'Processing', 'Shipped', 'Received', 'Done']) && !Auth::user()->hasRole('User')),
+                    Tables\Actions\Action::make('view_faktur')
+                        ->label('Faktur')
+                        ->icon('heroicon-m-document-text')
+                        ->color('success')
+                        ->url(fn (PurchaseProduct $record): string => route('purchase-product.faktur', $record))
+                        ->openUrlInNewTab()
+                        ->visible(fn (PurchaseProduct $record) => in_array($record->status, ['Shipped', 'Received', 'Done']) && !Auth::user()->hasRole('User')),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
                         ->visible(function (PurchaseProduct $record) {
