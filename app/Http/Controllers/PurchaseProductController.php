@@ -10,13 +10,12 @@ class PurchaseProductController extends Controller
     private function getCompanyInfo()
     {
         return [
-            'name' => env('APP_NAME', 'Your Company Name'),
+            'name' => env('COMPANY_NAME', 'Your Company Name'),
             'address' => env('COMPANY_ADDRESS', 'Jl. Example Street No. 123'),
             'city' => env('COMPANY_CITY', 'Jakarta, Indonesia'),
             'phone' => env('COMPANY_PHONE', '+62 21 1234 5678'),
             'email' => env('COMPANY_EMAIL', 'info@yourcompany.com'),
             'website' => env('COMPANY_WEBSITE', 'www.yourcompany.com'),
-            'npwp' => env('COMPANY_NPWP', '01.234.567.8-901.000'),
         ];
     }
 
