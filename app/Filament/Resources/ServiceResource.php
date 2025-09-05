@@ -20,9 +20,9 @@ class ServiceResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-s-truck';
 
-    protected static ?string $navigationGroup = 'Stock Management';
+    protected static ?string $navigationGroup = 'Service Management';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 8;
 
     public static function getModelLabel(): string
     {

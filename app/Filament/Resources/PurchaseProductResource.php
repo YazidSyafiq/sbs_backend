@@ -25,9 +25,9 @@ class PurchaseProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-shopping-cart';
 
-    protected static ?string $navigationGroup = 'Purchase Management';
+    protected static ?string $navigationGroup = 'Purchase Product Management';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 12;
 
     public static function getModelLabel(): string
     {

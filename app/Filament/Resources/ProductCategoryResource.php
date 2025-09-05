@@ -19,9 +19,9 @@ class ProductCategoryResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-c-tag';
 
-    protected static ?string $navigationGroup = 'Stock Management';
+    protected static ?string $navigationGroup = 'Category Management';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 4;
 
     public static function getModelLabel(): string
     {

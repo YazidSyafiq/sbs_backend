@@ -20,7 +20,7 @@ class CodeResource extends Resource
 
      protected static ?string $navigationIcon = 'heroicon-c-qr-code';
 
-    protected static ?string $navigationGroup = 'Stock Management';
+    protected static ?string $navigationGroup = 'Category Management';
 
     protected static ?int $navigationSort = 5;
 

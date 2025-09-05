@@ -23,9 +23,9 @@ class ProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-shopping-bag';
 
-    protected static ?string $navigationGroup = 'Stock Management';
+    protected static ?string $navigationGroup = 'Product Management';
 
-    protected static ?int $navigationSort = 3;
+    protected static ?int $navigationSort = 6;
 
     public static function getModelLabel(): string
     {
