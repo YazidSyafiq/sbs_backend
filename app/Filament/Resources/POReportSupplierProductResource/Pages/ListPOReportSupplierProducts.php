@@ -1,9 +1,11 @@
 <?php
 
-namespace App\Filament\Resources\POReportProductResource\Pages;
+namespace App\Filament\Resources\POReportSupplierProductResource\Pages;
 
-use App\Filament\Resources\POReportProductResource;
-use App\Models\Branch;
+use App\Filament\Resources\POReportSupplierProductResource;
+use App\Models\Supplier;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use Filament\Resources\Pages\ListRecords;
 use Filament\Pages\Concerns\ExposesTableToWidgets;
 use Filament\Actions;
@@ -12,30 +14,31 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
-use App\Exports\POReportProductExport;
+use App\Exports\POReportSupplierProductExport;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductFilterInfo;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductOverview;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByBranch;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByType;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductLineChart;
-use App\Filament\Resources\POReportProductResource\Widgets\POReportProductBarChart;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductFilterInfo;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductOverview;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductBySupplier;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductByProduct;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductLineChart;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductQuantityChart;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductPOChart;
+use App\Filament\Resources\POReportSupplierProductResource\Widgets\POReportSupplierProductDiversityChart;
 use Filament\Notifications\Notification;
-use App\Models\POReportProduct;
-use Auth;
+use App\Models\POReportSupplierProduct;
 
-class ListPOReportProducts extends ListRecords
+class ListPOReportSupplierProducts extends ListRecords
 {
     use ExposesTableToWidgets;
 
-    protected static string $resource = POReportProductResource::class;
+    protected static string $resource = POReportSupplierProductResource::class;
 
     protected function getHeaderWidgets(): array
     {
         $widgets = [];
 
         // Only show filter info widget if filters are active
-        $filters = session('po_product_filters', []);
+        $filters = session('supplier_product_filters', []);
         $activeFilters = collect($filters)
             ->filter(function($value) {
                 if (is_array($value)) {
@@ -45,16 +48,18 @@ class ListPOReportProducts extends ListRecords
             });
 
         if ($activeFilters->count() > 0) {
-            $widgets[] = POReportProductFilterInfo::class;
+            $widgets[] = POReportSupplierProductFilterInfo::class;
         }
 
         // Add other widgets
         $widgets = array_merge($widgets, [
-            POReportProductOverview::class,
-            POReportProductByBranch::class,
-            POReportProductByType::class,
-            POReportProductLineChart::class,
-            POReportProductBarChart::class,
+            POReportSupplierProductOverview::class,
+            POReportSupplierProductBySupplier::class,
+            POReportSupplierProductByProduct::class,
+            POReportSupplierProductLineChart::class,
+            POReportSupplierProductQuantityChart::class,
+            POReportSupplierProductPOChart::class,
+            POReportSupplierProductDiversityChart::class,
         ]);
 
         return $widgets;
@@ -67,12 +72,14 @@ class ListPOReportProducts extends ListRecords
                 ->label('Filter Data')
                 ->icon('heroicon-o-funnel')
                 ->color('primary')
-                ->modalHeading('Filter Purchase Orders')
+                ->modalHeading('Filter Supplier-Product Analytics')
                 ->modalDescription('Apply filters to all widgets and table data')
                 ->modalWidth('4xl')
                 ->fillForm(function(): array {
-                    return session('po_product_filters', [
-                        'branch_id' => null,
+                    return session('supplier_product_filters', [
+                        'supplier_id' => null,
+                        'product_id' => null,
+                        'category_id' => null,
                         'type_po' => [],
                         'status' => [],
                         'status_paid' => [],
@@ -82,18 +89,50 @@ class ListPOReportProducts extends ListRecords
                     ]);
                 })
                 ->form([
-                    Section::make()
+                    Section::make('Product & Supplier Filters')
                         ->schema([
                             Grid::make(3)
                                 ->schema([
-                                    Select::make('branch_id')
-                                        ->label('Branch')
-                                        ->options(Branch::pluck('name', 'id')->toArray())
+                                    Select::make('supplier_id')
+                                        ->label('Supplier')
+                                        ->options(function() {
+                                            return Supplier::select('id', 'name', 'code')
+                                                ->get()
+                                                ->mapWithKeys(function ($supplier) {
+                                                    return [$supplier->id => $supplier->name . ' (' . $supplier->code . ')'];
+                                                })
+                                                ->toArray();
+                                        })
                                         ->searchable()
                                         ->preload()
-                                        ->placeholder('Select a branch')
-                                        ->visible(fn () => !Auth::user()->hasRole('User')),
+                                        ->placeholder('Select a supplier'),
 
+                                    Select::make('product_id')
+                                        ->label('Product')
+                                        ->options(function() {
+                                            return Product::select('id', 'name', 'code')
+                                                ->get()
+                                                ->mapWithKeys(function ($product) {
+                                                    return [$product->id => $product->name . ' (' . $product->code . ')'];
+                                                })
+                                                ->toArray();
+                                        })
+                                        ->searchable()
+                                        ->preload()
+                                        ->placeholder('Select a product'),
+
+                                    Select::make('category_id')
+                                        ->label('Product Category')
+                                        ->options(ProductCategory::pluck('name', 'id')->toArray())
+                                        ->searchable()
+                                        ->preload()
+                                        ->placeholder('Select a category'),
+                                ]),
+                        ]),
+                    Section::make('Order & Payment Filters')
+                        ->schema([
+                            Grid::make(3)
+                                ->schema([
                                     Select::make('type_po')
                                         ->label('Purchase Type')
                                         ->multiple()
@@ -123,7 +162,12 @@ class ListPOReportProducts extends ListRecords
                                             'paid' => 'Paid',
                                         ])
                                         ->placeholder('Select payment statuses'),
-
+                                ]),
+                        ]),
+                    Section::make('Date & Special Filters')
+                        ->schema([
+                            Grid::make(3)
+                                ->schema([
                                     DatePicker::make('date_from')
                                         ->label('From Date')
                                         ->placeholder('Select start date'),
@@ -133,14 +177,13 @@ class ListPOReportProducts extends ListRecords
                                         ->placeholder('Select end date'),
 
                                     Toggle::make('outstanding_only')
-                                        ->label('Outstanding Debts Only')
-                                        ->helperText('Show only unpaid purchase orders')
-                                        ->columnSpanFull(),
+                                        ->label('Outstanding Payments Only')
+                                        ->helperText('Show only unpaid purchase orders'),
                                 ]),
                         ]),
                 ])
                 ->action(function (array $data): void {
-                    session(['po_product_filters' => $data]);
+                    session(['supplier_product_filters' => $data]);
 
                     $this->redirect(static::getUrl());
 
@@ -157,7 +200,9 @@ class ListPOReportProducts extends ListRecords
                 ->color('gray')
                 ->action(function (): void {
                     $defaultFilters = [
-                        'branch_id' => null,
+                        'supplier_id' => null,
+                        'product_id' => null,
+                        'category_id' => null,
                         'type_po' => [],
                         'status' => [],
                         'status_paid' => [],
@@ -166,7 +211,7 @@ class ListPOReportProducts extends ListRecords
                         'outstanding_only' => false,
                     ];
 
-                    session(['po_product_filters' => $defaultFilters]);
+                    session(['supplier_product_filters' => $defaultFilters]);
 
                     $this->redirect(static::getUrl());
 
@@ -182,13 +227,13 @@ class ListPOReportProducts extends ListRecords
                 ->icon('heroicon-o-document-arrow-down')
                 ->color('success')
                 ->action(function () {
-                    $filters = session('po_product_filters', []);
+                    $filters = session('supplier_product_filters', []);
 
                     // Generate filename with current date and filters
-                    $filename = 'po_product_report' . now()->format('Y-m-d_H-i-s');
+                    $filename = 'supplier_product_analytics_' . now()->format('Y-m-d_H-i-s');
 
                     // Add filter info to filename if filters are applied
-                    if (POReportProduct::hasActiveFilters($filters)) {
+                    if (POReportSupplierProduct::hasActiveFilters($filters)) {
                         $filename .= '_filtered';
                     }
 
@@ -200,65 +245,22 @@ class ListPOReportProducts extends ListRecords
                         ->info()
                         ->send();
 
-                    return Excel::download(new POReportProductExport($filters), $filename);
+                    // Note: You'll need to create POReportSupplierProductExport class
+                    return Excel::download(new POReportSupplierProductExport($filters), $filename);
+                })
+                ->visible(function() {
+                    // Only show if export class exists
+                    try {
+                        return class_exists('App\Exports\POReportSupplierProductExport');
+                    } catch (Exception $e) {
+                        return false;
+                    }
                 }),
         ];
     }
 
     public function getTitle(): string
     {
-        return 'Purchase Product Analytics';
+        return 'Supplier Product Analytics';
     }
-
-    // public function getSubheading(): ?string
-    // {
-    //     $filters = session('po_product_filters', []);
-    //     $activeFilters = collect($filters)
-    //         ->filter(function($value) {
-    //             if (is_array($value)) {
-    //                 return !empty($value);
-    //             }
-    //             return !is_null($value) && $value !== false && $value !== '';
-    //         });
-
-    //     if ($activeFilters->count() > 0) {
-    //         $filterNames = [];
-
-    //         if (!empty($filters['branch_id'])) {
-    //             $branchName = Branch::find($filters['branch_id'])->name ?? 'Unknown Branch';
-    //             $filterNames[] = "Branch: {$branchName}";
-    //         }
-
-    //         if (!empty($filters['type_po'])) {
-    //             $filterNames[] = "Type: " . implode(', ', $filters['type_po']);
-    //         }
-
-    //         if (!empty($filters['status'])) {
-    //             $filterNames[] = "Status: " . implode(', ', $filters['status']);
-    //         }
-
-    //         if (!empty($filters['status_paid'])) {
-    //             $filterNames[] = "Payment: " . implode(', ', $filters['status_paid']);
-    //         }
-
-    //         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
-    //             $dateRange = "Date: ";
-    //             if (!empty($filters['date_from'])) {
-    //                 $dateRange .= "from " . date('d M Y', strtotime($filters['date_from']));
-    //             }
-    //             if (!empty($filters['date_until'])) {
-    //                 $dateRange .= " to " . date('d M Y', strtotime($filters['date_until']));
-    //             }
-    //             $filterNames[] = $dateRange;
-    //         }
-
-    //         if (!empty($filters['outstanding_only'])) {
-    //             $filterNames[] = "Outstanding debts only";
-    //         }
-
-    //         return 'Active filters: ' . implode(' | ', $filterNames) . '. Use Filter Data button to modify.';
-    //     }
-
-    //     return 'Use the Filter Data button above to filter data across all widgets and table.';
-    // }
 }

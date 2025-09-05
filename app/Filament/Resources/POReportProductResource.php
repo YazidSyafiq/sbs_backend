@@ -17,7 +17,7 @@ class POReportProductResource extends Resource
 {
     protected static ?string $model = POReportProduct::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-calculator';
+    protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
 
     protected static ?string $navigationGroup = 'Purchase Product Management';
 
@@ -25,12 +25,12 @@ class POReportProductResource extends Resource
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Product Report';
+        return 'Purchase Product Analytic';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Product Reports';
+        return 'Purchase Product Analytics';
     }
 
     public static function table(Table $table): Table
