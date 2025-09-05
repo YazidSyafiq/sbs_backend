@@ -185,7 +185,7 @@ class ListPOReportProducts extends ListRecords
                     $filters = session('po_product_filters', []);
 
                     // Generate filename with current date and filters
-                    $filename = 'po_accounting_report_' . now()->format('Y-m-d_H-i-s');
+                    $filename = 'po_product_report' . now()->format('Y-m-d_H-i-s');
 
                     // Add filter info to filename if filters are applied
                     if (POReportProduct::hasActiveFilters($filters)) {

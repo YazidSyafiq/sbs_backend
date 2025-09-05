@@ -61,24 +61,6 @@
             margin-bottom: 5px;
         }
 
-        .alert-info {
-            background-color: white;
-            color: #333;
-            padding: 6px;
-            border-radius: 3px;
-            margin-bottom: 8px;
-            border-left: 3px solid #f0f0f0;
-            font-size: 8px;
-        }
-
-        .alert-info p {
-            margin: 2px 0;
-        }
-
-        .alert-info strong {
-            font-weight: bold;
-        }
-
         .parties-info {
             background-color: #f8f9fa;
             padding: 8px;
@@ -187,57 +169,6 @@
             font-weight: 400;
         }
 
-        .status-badge {
-            display: inline-block;
-            padding: 3px 5px 3px 5px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 4px;
-            text-transform: uppercase;
-            letter-spacing: 0.2px;
-        }
-
-        .status-draft {
-            background-color: #f8f9fa;
-            color: #6c757d;
-        }
-
-        .status-requested {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeaa7;
-        }
-
-        .status-processing {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .status-shipped {
-            background-color: #e2e3ff;
-            color: #4c4d7d;
-            border: 1px solid #c5c6f0;
-        }
-
-        .status-received {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .status-done {
-            background-color: #d1f2eb;
-            color: #00695c;
-            border: 1px solid #b8e6d3;
-        }
-
-        .status-cancelled {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
         .payment-status-paid {
             background-color: #d4edda;
             color: #155724;
@@ -295,140 +226,47 @@
         }
 
         .items-table .col-no {
-            width: 5%;
+            width: 8%;
             text-align: center;
         }
 
         .items-table .col-product {
-            width: 35%;
+            width: 40%;
         }
 
         .items-table .col-code {
-            width: 15%;
+            width: 32%;
             text-align: center;
         }
 
         .items-table .col-qty {
-            width: 10%;
+            width: 20%;
             text-align: center;
-        }
-
-        .items-table .col-price {
-            width: 17.5%;
-            text-align: right;
-        }
-
-        .items-table .col-total {
-            width: 17.5%;
-            text-align: right;
-        }
-
-        .total-row {
-            background-color: #f8f9fa;
-            font-weight: 600;
-        }
-
-        .total-row td {
-            font-weight: bold;
-            font-size: 8px;
-        }
-
-        .grand-total {
-            font-size: 9px;
-            color: #28a745;
-            font-weight: bold;
-        }
-
-        .compact-section {
-            margin-top: 8px;
-        }
-
-        .compact-row {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .compact-cell {
-            vertical-align: top;
-            padding: 4px;
-        }
-
-        .summary-section {
-            background-color: #f8f9fa;
-            padding: 6px;
-            border-radius: 3px;
-        }
-
-        .summary-title {
-            font-weight: bold;
-            margin-bottom: 4px;
-            color: #333;
-            font-size: 8px;
-        }
-
-        .terbilang-section {
-            background: linear-gradient(135deg, #d1f2eb 0%, #a7f3d0 100%);
-            padding: 8px;
-            border-radius: 5px;
-            margin-top: 4px;
-            border: 2px solid #10b981;
-        }
-
-        .terbilang-title {
-            font-weight: bold;
-            margin-bottom: 3px;
-            font-size: 8px;
-            color: #10b981;
-        }
-
-        .terbilang-text {
-            font-size: 7px;
-            color: #059669;
-            font-style: italic;
-            line-height: 1.2;
         }
 
         .notes-section {
             background-color: #f8f9fa;
-            padding: 6px;
-            border-radius: 3px;
+            padding: 8px;
+            border-radius: 5px;
+            margin-top: 10px;
         }
 
         .notes-section h4 {
-            margin: 0 0 3px 0;
-            font-size: 8px;
+            margin: 0 0 6px 0;
+            font-size: 9px;
             color: #333;
             font-weight: bold;
         }
 
         .notes-section p {
             margin: 0;
-            font-size: 7px;
+            font-size: 8px;
             color: #666;
-        }
-
-        .terms-section {
-            padding: 6px;
-            border: 1px solid #ddd;
-            background-color: #f9f9f9;
-            border-radius: 3px;
-        }
-
-        .terms-title {
-            font-weight: bold;
-            margin-bottom: 3px;
-            font-size: 7px;
-            color: #333;
-        }
-
-        .terms-text {
-            font-size: 5px;
-            color: #666;
-            line-height: 1.2;
+            line-height: 1.3;
         }
 
         .signature-section {
-            margin-top: 10px;
+            margin-top: 20px;
             page-break-inside: avoid;
         }
 
@@ -456,11 +294,6 @@
             margin-bottom: 1px;
         }
 
-        .signature-name {
-            font-size: 5px;
-            color: #666;
-        }
-
         .footer-section {
             margin-top: 8px;
             padding: 6px;
@@ -481,7 +314,7 @@
             font-weight: bold;
         }
 
-        /* Action Buttons - Updated to match invoice style */
+        /* Action Buttons */
         .action-buttons {
             margin: 20px 0;
             display: flex;
@@ -573,18 +406,18 @@
                 margin: 0;
                 max-width: none;
             }
+        }
 
-            /* Mobile responsiveness */
-            @media (max-width: 768px) {
-                .action-buttons {
-                    padding: 0 10px;
-                    margin: 15px 0;
-                }
+        /* Mobile responsiveness */
+        @media (max-width: 768px) {
+            .action-buttons {
+                padding: 0 10px;
+                margin: 15px 0;
+            }
 
-                .btn {
-                    font-size: 14px;
-                    padding: 10px 18px;
-                }
+            .btn {
+                font-size: 14px;
+                padding: 10px 18px;
             }
         }
     </style>
@@ -597,7 +430,7 @@
         Generating PDF...
     </div>
 
-    <!-- Action Buttons - Updated to match invoice style -->
+    <!-- Action Buttons -->
     <div class="action-buttons">
         <button class="btn btn-download" onclick="downloadFakturPDF()">
             <span>📄</span> Download PDF
@@ -607,7 +440,7 @@
     <div class="container" id="faktur-content">
         <!-- Header -->
         <div class="header">
-            <h1>FAKTUR PEMBELIAN</h1>
+            <h1>FAKTUR PURCHASE ORDER</h1>
             <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
         </div>
 
@@ -696,7 +529,7 @@
             </div>
         </div>
 
-        <!-- Items Table -->
+        <!-- Items Table - Simplified without price information -->
         <div class="table-container">
             <h3 style="margin: 0 0 4px 0; font-size: 9px; color: #333; font-weight: 600;">Daftar Produk</h3>
             <table class="items-table">
@@ -706,8 +539,6 @@
                         <th class="col-product">Nama Produk</th>
                         <th class="col-code">Kode Produk</th>
                         <th class="col-qty">Qty</th>
-                        <th class="col-price">Harga Satuan</th>
-                        <th class="col-total">Jumlah</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -724,77 +555,21 @@
                             </td>
                             <td style="text-align: center;">{{ $item->product->code }}</td>
                             <td style="text-align: center; font-weight: 600;">{{ $item->quantity }} pcs</td>
-                            <td style="text-align: right;">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
-                            <td style="text-align: right; font-weight: 600; color: #28a745;">Rp
-                                {{ number_format($item->total_price, 0, ',', '.') }}</td>
                         </tr>
                     @endforeach
-                    <tr class="total-row">
-                        <td colspan="5" style="text-align: right;"><strong>TOTAL PEMBAYARAN :</strong></td>
-                        <td class="grand-total" style="text-align: right;"><strong>Rp
-                                {{ number_format($purchaseProduct->total_amount, 0, ',', '.') }}</strong></td>
-                    </tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Layout 3 Kolom untuk Optimasi Space -->
-        <table class="compact-row" style="width: 100%; margin-top: 8px;">
-            <tr>
-                <!-- Kolom 1: Summary -->
-                <td class="compact-cell" style="width: 40%; padding-right: 6px;">
-                    <div class="summary-section">
-                        <div class="summary-title">Ringkasan Pembayaran</div>
-                        <table style="width: 100%; font-size: 7px;">
-                            <tr>
-                                <td style="padding: 1px 0; color: #666;">Subtotal:</td>
-                                <td style="text-align: right; font-weight: bold;">Rp
-                                    {{ number_format($purchaseProduct->total_amount, 0, ',', '.') }}</td>
-                            </tr>
-                            <tr style="border-top: 1px solid #ddd;">
-                                <td style="padding: 3px 0 1px 0; font-weight: bold; font-size: 8px;">TOTAL:</td>
-                                <td style="text-align: right; font-weight: bold; font-size: 9px; color: #28a745;">Rp
-                                    {{ number_format($purchaseProduct->total_amount, 0, ',', '.') }}</td>
-                            </tr>
-                        </table>
-                    </div>
+        <!-- Notes Section Only -->
+        @if ($purchaseProduct->notes)
+            <div class="notes-section">
+                <h4>Catatan:</h4>
+                <p>{{ $purchaseProduct->notes }}</p>
+            </div>
+        @endif
 
-                    <!-- Notes -->
-                    @if ($purchaseProduct->notes)
-                        <div class="notes-section" style="margin-top: 6px;">
-                            <h4>Catatan:</h4>
-                            <p>{{ $purchaseProduct->notes }}</p>
-                        </div>
-                    @endif
-                </td>
-
-                <!-- Kolom 2: Terbilang -->
-                <td class="compact-cell" style="width: 35%; padding: 0 3px;">
-                    <div class="terbilang-section">
-                        <div class="terbilang-title">Terbilang</div>
-                        <div class="terbilang-text">
-                            {{ App\Helpers\NumberHelper::toCurrencyWords($purchaseProduct->total_amount) }}
-                        </div>
-                    </div>
-                </td>
-
-                <!-- Kolom 3: Terms -->
-                <td class="compact-cell" style="width: 25%; padding-left: 6px;">
-                    <div class="terms-section">
-                        <div class="terms-title">Syarat & Ketentuan</div>
-                        <div class="terms-text">
-                            • Semua harga dalam IDR<br>
-                            • Pembayaran sesuai kesepakatan<br>
-                            • Barang milik penjual hingga lunas<br>
-                            • Komplain maks 7 hari<br>
-                            • Faktur sah sebagai bukti transaksi
-                        </div>
-                    </div>
-                </td>
-            </tr>
-        </table>
-
-        <!-- Enhanced Signature Section - 3 Kolom -->
+        <!-- Signature Section -->
         <div class="signature-section">
             <table class="signature-table">
                 <tr>
@@ -805,28 +580,27 @@
                     <td class="signature-cell">
                         <div class="signature-label">DIKIRIM OLEH</div>
                         <div class="signature-box"></div>
+                    </td>
+                    <td class="signature-cell">
+                        <div class="signature-label">DITERIMA OLEH</div>
+                        <div class="signature-box"></div>
+                    </td>
+                </tr>
+            </table>
         </div>
-        </td>
-        <td class="signature-cell">
-            <div class="signature-label">DITERIMA OLEH</div>
-            <div class="signature-box"></div>
-        </td>
-        </tr>
-        </table>
-    </div>
 
-    <!-- Footer Kompak -->
-    <div class="footer-section">
-        @if (file_exists(public_path('default/images/img_logo.png')))
-            <div style="text-align: center; margin-bottom: 3px;">
-                <img src="{{ URL::asset('default/images/img_logo.png') }}" alt="{{ $companyInfo['name'] }}"
-                    class="logo">
-            </div>
-        @endif
-        <p><strong>{{ $companyInfo['name'] }}</strong></p>
-        <p>{{ $companyInfo['address'] }} | {{ $companyInfo['city'] }} | {{ $companyInfo['phone'] }}</p>
-        <p><em>Dibuat otomatis: {{ now()->format('d F Y, H:i') }} WIB</em></p>
-    </div>
+        <!-- Footer -->
+        <div class="footer-section">
+            @if (file_exists(public_path('default/images/img_logo.png')))
+                <div style="text-align: center; margin-bottom: 3px;">
+                    <img src="{{ URL::asset('default/images/img_logo.png') }}" alt="{{ $companyInfo['name'] }}"
+                        class="logo">
+                </div>
+            @endif
+            <p><strong>{{ $companyInfo['name'] }}</strong></p>
+            <p>{{ $companyInfo['address'] }} | {{ $companyInfo['city'] }} | {{ $companyInfo['phone'] }}</p>
+            <p><em>Dibuat otomatis: {{ now()->format('d F Y, H:i') }} WIB</em></p>
+        </div>
     </div>
 
     <script>
