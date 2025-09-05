@@ -14,7 +14,7 @@ use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
 use App\Exports\POReportProductExport;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Filament\Resource\POReportProductResource\Widgets\POReportProductFilterInfo;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductFilterInfo;
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductOverview;
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByBranch;
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByType;
