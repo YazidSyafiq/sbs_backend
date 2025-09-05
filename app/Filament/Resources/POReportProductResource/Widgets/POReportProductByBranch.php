@@ -10,7 +10,7 @@ class POReportProductByBranch extends BaseWidget
 {
     protected function getStats(): array
     {
-        $filters = session('po_accounting_filters', []);
+        $filters = session('po_product_filters', []);
         $stats = [];
 
         // Use POReportProduct model method
@@ -58,7 +58,7 @@ class POReportProductByBranch extends BaseWidget
 
     public function getHeading(): ?string
     {
-        $filters = session('po_accounting_filters', []);
+        $filters = session('po_product_filters', []);
         $branchStats = POReportProduct::getFilteredAccountingSummaryByBranch($filters);
 
         $totalBranches = $branchStats->count();

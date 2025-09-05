@@ -15,7 +15,7 @@ class POReportProductLineChart extends ChartWidget
 
     protected function getData(): array
     {
-        $filters = session('po_accounting_filters', []);
+        $filters = session('po_product_filters', []);
 
         $monthlyData = POReportProduct::getFilteredMonthlyTrends($filters);
 
@@ -161,7 +161,7 @@ class POReportProductLineChart extends ChartWidget
 
     public function getHeading(): ?string
     {
-        $filters = session('po_accounting_filters', []);
+        $filters = session('po_product_filters', []);
         return 'Financial Trends (' . POReportProduct::getPeriodLabel($filters) . ')';
     }
 

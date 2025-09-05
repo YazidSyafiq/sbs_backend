@@ -38,7 +38,7 @@ class POReportProductResource extends Resource
         return $table
             ->modifyQueryUsing(function (Builder $query) {
                 $user = Auth::user();
-                $filters = session('po_accounting_filters', []);
+                $filters = session('po_product_filters', []);
 
                 // Join dengan user dan branch untuk data lengkap
                 $query->select([

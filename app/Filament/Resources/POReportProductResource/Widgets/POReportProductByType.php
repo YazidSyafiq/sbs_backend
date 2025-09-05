@@ -10,7 +10,7 @@ class POReportProductByType extends BaseWidget
 {
     protected function getStats(): array
     {
-        $filters = session('po_accounting_filters', []);
+        $filters = session('po_product_filters', []);
 
         // Use POReportProduct model method
         $stats = POReportProduct::getFilteredOverviewStats($filters);
