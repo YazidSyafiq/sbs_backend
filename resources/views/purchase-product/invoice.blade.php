@@ -108,7 +108,7 @@
         .po-details-table .po-info-label {
             font-weight: 500;
             color: #666;
-            width: 100px;
+            width: 30px;
             white-space: nowrap;
         }
 

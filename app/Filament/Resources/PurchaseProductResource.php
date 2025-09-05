@@ -156,8 +156,12 @@ class PurchaseProductResource extends Resource
                                         if ($state) {
                                             $product = Product::find($state);
                                             $set('unit_price', $product->price ?? 0);
+                                            $set('supplier_price', $product->supplier_price ?? 0);
                                         }
                                     }),
+                                Forms\Components\Hidden::make('supplier_price')
+                                    ->label('Supplier Price')
+                                    ->dehydrated(),
                                 Forms\Components\TextInput::make('quantity')
                                     ->numeric()
                                     ->minValue(1)
