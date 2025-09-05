@@ -390,22 +390,9 @@ class PurchaseProductResource extends Resource
                             ->send();
                     })
                     ->visible(function (PurchaseProduct $record) {
-                        $user = Auth::user();
-
                         // Jika status Draft, semua bisa cancel
-                        if ($record->status === 'Draft') {
+                        if ($record->status === 'Draft' || $record->status === 'Requested' ) {
                             return true;
-                        }
-
-                        // Jika status Requested
-                        if ($record->status === 'Requested') {
-                            // Hanya credit PO yang bisa di-cancel saat status Requested
-                            if ($record->type_po === 'credit') {
-                                return true;
-                            }
-
-                            // Cash PO tidak bisa di-cancel setelah requested
-                            return false;
                         }
 
                         // Status lain tidak bisa cancel

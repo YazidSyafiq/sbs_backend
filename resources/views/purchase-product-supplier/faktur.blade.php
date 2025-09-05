@@ -440,7 +440,7 @@
     <div class="container" id="faktur-content">
         <!-- Header -->
         <div class="header">
-            <h1>FAKTUR PURCHASE ORDER</h1>
+            <h1>FAKTUR PURCHASE ORDER SUPPLIER</h1>
             <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
         </div>
 
@@ -449,7 +449,25 @@
             <h3>Informasi Pihak Terkait</h3>
             <div class="parties-grid">
                 <div class="party-section company-section">
-                    <div class="party-title">Dari (Penjual)</div>
+                    <div class="party-title">Dari (Supplier)</div>
+                    <table class="party-details-table">
+                        <tr>
+                            <td class="party-info-label">Nama</td>
+                            <td class="party-info-value">: {{ $purchaseProduct->supplier->name }}</td>
+                        </tr>
+                        <tr>
+                            <td class="party-info-label">Alamat</td>
+                            <td class="party-info-value">: {{ $purchaseProduct->supplier->address }}</td>
+                        </tr>
+                        <tr>
+                            <td class="party-info-label">No. Telpon</td>
+                            <td class="party-info-value">: {{ $purchaseProduct->supplier->phone }}</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="party-section customer-section">
+                    <div class="party-title">Kepada (Pembeli)</div>
                     <table class="party-details-table">
                         <tr>
                             <td class="party-info-label">Perusahaan</td>
@@ -465,26 +483,6 @@
                         </tr>
                     </table>
                 </div>
-
-                <div class="party-section customer-section">
-                    <div class="party-title">Kepada (Pembeli)</div>
-                    <table class="party-details-table">
-                        <tr>
-                            <td class="party-info-label">Nama</td>
-                            <td class="party-info-value">: {{ $purchaseProduct->user->name }}</td>
-                        </tr>
-                        @if ($purchaseProduct->user->branch)
-                            <tr>
-                                <td class="party-info-label">Cabang</td>
-                                <td class="party-info-value">: {{ $purchaseProduct->user->branch->name }}</td>
-                            </tr>
-                            <tr>
-                                <td class="party-info-label">Kode Cabang</td>
-                                <td class="party-info-value">: {{ $purchaseProduct->user->branch->code }}</td>
-                            </tr>
-                        @endif
-                    </table>
-                </div>
             </div>
         </div>
 
@@ -494,6 +492,10 @@
             <div class="details-grid">
                 <div>
                     <div class="detail-item">
+                        <span class="detail-label">Request By</span>
+                        <span class="detail-value">: {{ $purchaseProduct->user->name }}</span>
+                    </div>
+                    <div class="detail-item">
                         <span class="detail-label">No. Faktur</span>
                         <span class="detail-value">: {{ $purchaseProduct->po_number }}</span>
                     </div>
@@ -501,12 +503,12 @@
                         <span class="detail-label">Tanggal Faktur</span>
                         <span class="detail-value">: {{ $purchaseProduct->order_date->format('d F Y') }}</span>
                     </div>
+                </div>
+                <div>
                     <div class="detail-item">
                         <span class="detail-label">Jenis PO</span>
                         <span class="detail-value">: {{ ucfirst($purchaseProduct->type_po) }} Purchase</span>
                     </div>
-                </div>
-                <div>
                     <div class="detail-item">
                         <span class="detail-label">Status Bayar</span>
                         <span class="detail-value">: <span class="payment-status-{{ $purchaseProduct->status_paid }}">
@@ -514,17 +516,13 @@
                             </span>
                         </span>
                     </div>
-                    @if ($purchaseProduct->expected_delivery_date)
+                    @if ($purchaseProduct->received_date)
                         <div class="detail-item">
-                            <span class="detail-label">Target Kirim</span>
+                            <span class="detail-label">Tanggal Diterima</span>
                             <span class="detail-value">:
-                                {{ $purchaseProduct->expected_delivery_date->format('d F Y') }}</span>
+                                {{ $purchaseProduct->received_date->format('d F Y') }}</span>
                         </div>
                     @endif
-                    <div class="detail-item">
-                        <span class="detail-label">Jumlah Item</span>
-                        <span class="detail-value">: {{ $purchaseProduct->items->count() }} items</span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -542,47 +540,24 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($purchaseProduct->items as $index => $item)
-                        <tr>
-                            <td style="text-align: center; font-weight: 600; color: #28a745;">{{ $index + 1 }}</td>
-                            <td>
-                                <strong>{{ $item->product->name }}</strong>
-                            </td>
-                            <td style="text-align: center;">{{ $item->product->code }}</td>
-                            <td style="text-align: center; font-weight: 600;">{{ $item->quantity }} pcs</td>
-                        </tr>
-                    @endforeach
+                    <tr>
+                        <td style="text-align: center; font-weight: 600; color: #28a745;">1</td>
+                        <td>
+                            <strong>{{ $purchaseProduct->product->name }}</strong>
+                        </td>
+                        <td style="text-align: center;">{{ $purchaseProduct->product->code }}</td>
+                        <td style="text-align: center; font-weight: 600;">{{ $purchaseProduct->quantity }} pcs</td>
+                    </tr>
                 </tbody>
             </table>
         </div>
 
-        <!-- Notes Section Only -->
-        @if ($purchaseProduct->notes)
-            <div class="notes-section">
-                <h4>Catatan:</h4>
-                <p>{{ $purchaseProduct->notes }}</p>
-            </div>
-        @endif
 
-        <!-- Signature Section -->
-        <div class="signature-section">
-            <table class="signature-table">
-                <tr>
-                    <td class="signature-cell">
-                        <div class="signature-label">HORMAT KAMI</div>
-                        <div class="signature-box"></div>
-                    </td>
-                    <td class="signature-cell">
-                        <div class="signature-label">DIKIRIM OLEH</div>
-                        <div class="signature-box"></div>
-                    </td>
-                    <td class="signature-cell">
-                        <div class="signature-label">DITERIMA OLEH</div>
-                        <div class="signature-box"></div>
-                    </td>
-                </tr>
-            </table>
+        <div class="notes-section">
+            <h4>Catatan:</h4>
+            <p>{{ $purchaseProduct->notes }}</p>
         </div>
+
 
         <!-- Footer -->
         <div class="footer-section">
@@ -609,7 +584,7 @@
 
                 const element = document.getElementById('faktur-content');
                 const filename =
-                    `Faktur_{{ $purchaseProduct->po_number }}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
+                    `Faktur_Supplier_{{ $purchaseProduct->po_number }}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
 
                 // Hide action buttons temporarily
                 const actionButtons = document.querySelector('.action-buttons');

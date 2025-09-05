@@ -216,7 +216,7 @@ class PurchaseProductSupplierResource extends Resource
                             ->disabled(fn (Get $get) => $get('status') === 'Done')
                             ->required(),
                         Forms\Components\FileUpload::make('bukti_tf')
-                            ->label('Upload Payment Receipt')
+                            ->label('Upload Invoice From Supplier')
                             ->maxSize(3072)
                             ->disk('public')
                             ->columnSpanFull()
@@ -235,6 +235,7 @@ class PurchaseProductSupplierResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->defaultSort('created_at', 'desc')
             ->columns([
                Tables\Columns\TextColumn::make('po_number')
                     ->label('PO Number')
@@ -399,6 +400,13 @@ class PurchaseProductSupplierResource extends Resource
                     ->modalHeading('Complete Purchase Order')
                     ->modalDescription('Are you sure you want to mark this purchase order as Done?'),
                 Tables\Actions\ActionGroup::make([
+                    Tables\Actions\Action::make('view_faktur')
+                        ->label('Faktur')
+                        ->icon('heroicon-m-document-text')
+                        ->color('success')
+                        ->url(fn (PurchaseProductSupplier $record): string => route('purchase-product-supplier.faktur', $record))
+                        ->openUrlInNewTab()
+                        ->visible(fn (PurchaseProductSupplier $record) => in_array($record->status, ['Shipped', 'Received', 'Done'])),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
                         ->visible(fn (PurchaseProductSupplier $record) =>

@@ -7,6 +7,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+use App\Mail\PurchaseOrderSupplierProductsNotification;
 
 class PurchaseProductSupplier extends Model
 {
@@ -49,6 +52,81 @@ class PurchaseProductSupplier extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // Event saat model dibuat
+        static::created(function ($purchaseProductSupplier) {
+            $purchaseProductSupplier->status = 'Requested';
+            $purchaseProductSupplier->save();
+
+            // Jika status adalah Requested, kirim email notifikasi
+            if ($purchaseProductSupplier->status === 'Requested') {
+                $purchaseProductSupplier->sendStatusChangeEmail();
+            }
+        });
+    }
+
+    /**
+    * Send email notification for PO status change
+    */
+    private function sendStatusChangeEmail(): void
+    {
+        try {
+            // Load relationship yang dibutuhkan untuk email
+            $this->load([]);
+
+            $recipients = [];
+
+            // Tentukan penerima email berdasarkan status PO
+            switch ($this->status) {
+                case 'Requested':
+                case 'Processing':
+                case 'Shipped':
+                case 'Received':
+                case 'Cancelled':
+                case 'Done':
+                    $recipients = User::whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['Admin', 'Supervisor', 'Manager', 'Super Admin']);
+                    })->get();
+                    break;
+
+                default:
+                    // Status lain tidak perlu notifikasi email
+                    return;
+            }
+
+            // Kirim email ke setiap penerima
+            foreach ($recipients as $recipient) {
+                try {
+                    Mail::to($recipient->email)->send(
+                        new PurchaseOrderSupplierProductsNotification($this)
+                    );
+
+                    Log::info("PO status email sent", [
+                        'po_number' => $this->po_number,
+                        'status' => $this->status,
+                        'recipient' => $recipient->email
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send PO status email", [
+                        'po_number' => $this->po_number,
+                        'status' => $this->status,
+                        'recipient' => $recipient->email,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to process PO status email", [
+                'po_number' => $this->po_number,
+                'status' => $this->status,
+                'error' => $e->getMessage()
+            ]);
+        }
     }
 
     public static function generatePoNumber(int $supplierId, string $orderDate): string
@@ -127,6 +205,8 @@ class PurchaseProductSupplier extends Model
 
         $this->status = 'Processing';
         $this->save();
+
+        $this->sendStatusChangeEmail();
     }
 
     public function cancel(): void
@@ -148,6 +228,8 @@ class PurchaseProductSupplier extends Model
 
         $this->status = 'Cancelled';
         $this->save();
+
+        $this->sendStatusChangeEmail();
     }
 
     public function receive(): void
@@ -163,6 +245,8 @@ class PurchaseProductSupplier extends Model
 
         $this->status = 'Received';
         $this->save();
+
+        $this->sendStatusChangeEmail();
     }
 
     public function done(): void
@@ -185,7 +269,7 @@ class PurchaseProductSupplier extends Model
 
         $this->status = 'Done';
         $this->save();
+
+        $this->sendStatusChangeEmail();
     }
-
-
 }
