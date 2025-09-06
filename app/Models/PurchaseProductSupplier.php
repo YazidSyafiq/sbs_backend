@@ -241,6 +241,7 @@ class PurchaseProductSupplier extends Model
         $product = Product::where('id', $this->product_id)->first();
         $product->update([
             'stock' => $product->stock + $this->quantity,
+            'entry_date' => now(),
         ]);
 
         $this->status = 'Received';

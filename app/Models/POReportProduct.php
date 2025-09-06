@@ -11,7 +11,7 @@ use Carbon\Carbon;
 
 class POReportProduct extends Model
 {
-     // Gunakan table yang sama dengan PurchaseProduct
+    // Gunakan table yang sama dengan PurchaseProduct
     protected $table = 'purchase_products';
 
     // Cast untuk data types

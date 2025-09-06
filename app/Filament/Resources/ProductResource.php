@@ -201,36 +201,6 @@ class ProductResource extends Resource
                         'Low Stock' => 'heroicon-m-exclamation-triangle',
                         'In Stock' => 'heroicon-m-check-circle',
                     }),
-                Tables\Columns\TextColumn::make('need_purchase')
-                    ->label('Need Purchase')
-                    ->numeric()
-                    ->color(fn ($state) => $state > 0 ? 'danger' : null),
-                Tables\Columns\TextColumn::make('purchase_status')
-                    ->label('Purchase Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Need Purchase' => 'danger',
-                        'Stock Available' => 'success',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'Need Purchase' => 'heroicon-m-x-circle',
-                        'Stock Available' => 'heroicon-m-check-circle',
-                    }),
-                Tables\Columns\TextColumn::make('on_request')
-                    ->label('Request')
-                    ->numeric(),
-                Tables\Columns\TextColumn::make('on_processing')
-                    ->label('Processing')
-                    ->color('warning')
-                    ->numeric(),
-                Tables\Columns\TextColumn::make('on_shipped')
-                    ->label('Shipped')
-                    ->color('info')
-                    ->numeric(),
-                Tables\Columns\TextColumn::make('on_received')
-                    ->label('Received')
-                    ->color('success')
-                    ->numeric(),
             ])
             ->filters([
                 //
