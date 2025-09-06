@@ -7,6 +7,7 @@ use App\Models\Branch;
 use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Carbon\Carbon;
+use Auth;
 
 class POReportProductExport implements WithMultipleSheets
 {
@@ -21,9 +22,19 @@ class POReportProductExport implements WithMultipleSheets
 
     public function sheets(): array
     {
-        return [
+        $user = Auth::user();
+
+        // Basic sheets for all users
+        $sheets = [
             'Summary' => new POProductSummarySheet($this->filters),
             'Detailed Data' => new POProductDetailSheet($this->filters),
         ];
+
+        // Add profit analysis sheet ONLY for Admin, Supervisor, Manager, Super Admin
+        if ($user && !$user->hasRole('User')) {
+            $sheets['Profit Analysis'] = new POProductProfitSheet($this->filters);
+        }
+
+        return $sheets;
     }
 }

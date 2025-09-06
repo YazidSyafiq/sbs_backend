@@ -13,6 +13,7 @@ use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use Illuminate\Support\Facades\URL;
+use Auth;
 
 class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, WithStyles, WithTitle, WithColumnWidths
 {
@@ -25,7 +26,7 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
 
     public function query()
     {
-        $query = POReportProduct::with(['user.branch'])
+        $query = POReportProduct::with(['user.branch', 'items.product'])
             ->select([
                 'purchase_products.*',
                 'users.name as user_name',
@@ -44,7 +45,9 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
 
     public function headings(): array
     {
-        return [
+        $user = Auth::user();
+
+        $basicHeadings = [
             'PO Number',
             'PO Name',
             'Branch',
@@ -60,18 +63,33 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
             'Invoice',
             'Faktur',
         ];
+
+        // Add profit columns ONLY for non-User roles
+        if ($user && !$user->hasRole('User')) {
+            // Insert profit columns before 'Requested By'
+            array_splice($basicHeadings, -3, 0, [
+                'Total Cost',
+                'Realized Profit',
+                'Profit Margin %',
+                'Items Count'
+            ]);
+        }
+
+        return $basicHeadings;
     }
 
     public function map($po): array
     {
+        $user = Auth::user();
+
         $outstandingAmount = $po->status_paid === 'unpaid' ? $po->total_amount : 0;
         $paidAmount = $po->status_paid === 'paid' ? $po->total_amount : 0;
 
-        // Generate invoice URL - same for both invoice and faktur
+        // Generate URLs
         $invoiceUrl = $this->generateInvoiceUrl($po);
-        $fakturUrl = $this->generateFakturUrl($po); // Same implementation
+        $fakturUrl = $this->generateFakturUrl($po);
 
-        return [
+        $basicData = [
             $po->po_number,
             $po->name,
             $po->branch_name ?? 'No Branch',
@@ -87,6 +105,38 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
             $invoiceUrl,
             $fakturUrl,
         ];
+
+        // Add profit data ONLY for non-User roles AND only for PAID orders
+        if ($user && !$user->hasRole('User')) {
+            if ($po->status_paid === 'paid') {
+                // Calculate profit data for PAID orders
+                $totalCost = $po->items->sum(function($item) {
+                    return $item->supplier_price * $item->quantity;
+                });
+                $totalRevenue = $po->total_amount;
+                $totalProfit = $totalRevenue - $totalCost;
+                $profitMargin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
+                $itemsCount = $po->items->sum('quantity');
+
+                // Insert profit data before last 3 elements
+                array_splice($basicData, -3, 0, [
+                    $totalCost,
+                    $totalProfit,
+                    $profitMargin,
+                    $itemsCount
+                ]);
+            } else {
+                // For UNPAID orders, show zero/blank profit data
+                array_splice($basicData, -3, 0, [
+                    0, // Total Cost
+                    0, // Total Profit
+                    0, // Profit Margin
+                    $po->items->sum('quantity') // Items Count (still show this)
+                ]);
+            }
+        }
+
+        return $basicData;
     }
 
     /**
@@ -97,8 +147,6 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
         if (!$po->id) {
             return '';
         }
-
-        // Generate full URL for invoice
         return URL::route('purchase-product.invoice', ['purchaseProduct' => $po->id]);
     }
 
@@ -110,14 +158,14 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
         if (!$po->id) {
             return '';
         }
-
-        // Generate full URL for invoice
         return URL::route('purchase-product.faktur', ['purchaseProduct' => $po->id]);
     }
 
     public function styles(Worksheet $sheet)
     {
-        return [
+        $user = Auth::user();
+
+        $styles = [
             1 => [
                 'font' => [
                     'bold' => true,
@@ -131,20 +179,51 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
                     'horizontal' => Alignment::HORIZONTAL_CENTER
                 ]
             ],
-            // Format currency columns
-            'I:K' => [
+        ];
+
+        if ($user && !$user->hasRole('User')) {
+            // Format with profit columns
+            $styles['I:M'] = [
                 'numberFormat' => [
                     'formatCode' => '#,##0'
                 ]
-            ],
+            ];
+            // Format percentage column
+            $styles['N:N'] = [
+                'numberFormat' => [
+                    'formatCode' => '0.00"%"'
+                ]
+            ];
+            // Items count formatting
+            $styles['O:O'] = [
+                'numberFormat' => [
+                    'formatCode' => '#,##0'
+                ]
+            ];
             // Make Invoice and Faktur columns clickable (URL style)
-            'M:N' => [
+            $styles['Q:R'] = [
                 'font' => [
                     'color' => ['rgb' => '0000FF'],
                     'underline' => true
                 ]
-            ]
-        ];
+            ];
+        } else {
+            // Format without profit columns
+            $styles['I:K'] = [
+                'numberFormat' => [
+                    'formatCode' => '#,##0'
+                ]
+            ];
+            // Make Invoice and Faktur columns clickable (URL style)
+            $styles['M:N'] = [
+                'font' => [
+                    'color' => ['rgb' => '0000FF'],
+                    'underline' => true
+                ]
+            ];
+        }
+
+        return $styles;
     }
 
     public function title(): string
@@ -154,7 +233,9 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
 
     public function columnWidths(): array
     {
-        return [
+        $user = Auth::user();
+
+        $basicWidths = [
             'A' => 15, // PO Number
             'B' => 25, // PO Name
             'C' => 20, // Branch
@@ -170,5 +251,18 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
             'M' => 50, // Invoice URL
             'N' => 50, // Faktur URL
         ];
+
+        if ($user && !$user->hasRole('User')) {
+            // Add profit column widths
+            $basicWidths['L'] = 15; // Total Cost
+            $basicWidths['M'] = 15; // Total Profit
+            $basicWidths['N'] = 12; // Profit Margin %
+            $basicWidths['O'] = 12; // Items Count
+            $basicWidths['P'] = 20; // Requested By
+            $basicWidths['Q'] = 50; // Invoice URL
+            $basicWidths['R'] = 50; // Faktur URL
+        }
+
+        return $basicWidths;
     }
 }

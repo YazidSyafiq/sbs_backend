@@ -130,7 +130,7 @@ class POReportProductFilterInfo extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 2; // Always 2 columns for consistent layout
+        return 2;
     }
 
     public function getHeading(): ?string

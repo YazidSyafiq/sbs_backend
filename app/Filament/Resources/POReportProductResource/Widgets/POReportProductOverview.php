@@ -77,9 +77,6 @@ class POReportProductOverview extends BaseWidget
         }
     }
 
-    /**
-     * Context for date filter
-     */
     private function getDateFilterContext($filters, $currentStats): array
     {
         $dateFrom = !empty($filters['date_from']) ? $filters['date_from'] : null;
@@ -123,9 +120,6 @@ class POReportProductOverview extends BaseWidget
         ];
     }
 
-    /**
-     * Context for type filter
-     */
     private function getTypeFilterContext($filters, $currentStats): array
     {
         $types = array_map('ucfirst', $filters['type_po']);
@@ -140,9 +134,6 @@ class POReportProductOverview extends BaseWidget
         ];
     }
 
-    /**
-     * Context for status filter
-     */
     private function getStatusFilterContext($filters, $currentStats): array
     {
         $hasStatus = !empty($filters['status']);
@@ -187,9 +178,6 @@ class POReportProductOverview extends BaseWidget
         ];
     }
 
-    /**
-     * Context for outstanding filter
-     */
     private function getOutstandingFilterContext($currentStats): array
     {
         return [
@@ -201,9 +189,6 @@ class POReportProductOverview extends BaseWidget
         ];
     }
 
-    /**
-     * Default context when no filters are applied
-     */
     private function getDefaultContext(): array
     {
         // Show current month when no filters are applied

@@ -65,11 +65,10 @@ class POReportProduct extends Model
 
     /**
      * Helper method to apply filters to any query
-     * UPDATED: branch_ids menjadi branch_id (single)
      */
     public static function applyFiltersToQuery($query, $filters = [])
     {
-        // Branch filter - CHANGED: from branch_ids (array) to branch_id (single)
+        // Branch filter
         if (!empty($filters['branch_id'])) {
             $query->whereHas('user', function($q) use ($filters) {
                 $q->where('branch_id', $filters['branch_id']);
@@ -117,14 +116,212 @@ class POReportProduct extends Model
     }
 
     /**
+     * Get filtered profit analysis overview
+     * ONLY calculate profit for PAID POs
+     */
+    public static function getFilteredProfitOverview($filters = [])
+    {
+        $query = static::with(['items.product'])->activeOnly();
+        $query = static::applyFiltersToQuery($query, $filters);
+
+        $allPos = $query->get();
+
+        // ONLY include PAID POs for profit calculation
+        $paidPos = $allPos->filter(fn($po) => $po->status_paid === 'paid');
+        $paidItems = $paidPos->flatMap->items;
+
+        $totalCost = $paidItems->sum(function($item) {
+            return $item->supplier_price * $item->quantity;
+        });
+
+        $totalRevenue = $paidItems->sum('total_price');
+        $totalProfit = $totalRevenue - $totalCost;
+        $profitMargin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
+
+        // Also calculate total outstanding for context
+        $unpaidPos = $allPos->filter(fn($po) => $po->status_paid === 'unpaid');
+        $unpaidItems = $unpaidPos->flatMap->items;
+        $outstandingRevenue = $unpaidItems->sum('total_price');
+        $outstandingCost = $unpaidItems->sum(function($item) {
+            return $item->supplier_price * $item->quantity;
+        });
+        $potentialProfit = $outstandingRevenue - $outstandingCost;
+
+        return (object)[
+            'total_cost' => $totalCost,
+            'total_revenue' => $totalRevenue,
+            'total_profit' => $totalProfit,
+            'profit_margin' => $profitMargin,
+            'total_items' => $paidItems->sum('quantity'),
+            'total_orders' => $paidPos->count(),
+            'outstanding_revenue' => $outstandingRevenue,
+            'outstanding_cost' => $outstandingCost,
+            'potential_profit' => $potentialProfit,
+            'unpaid_orders' => $unpaidPos->count(),
+        ];
+    }
+
+    /**
+     * Get top profitable products
+     * ONLY calculate profit for PAID POs
+     */
+    public static function getTopProfitableProducts($filters = [], $limit = 10)
+    {
+        $query = static::with(['items.product'])->activeOnly();
+        $query = static::applyFiltersToQuery($query, $filters);
+
+        $allPos = $query->get();
+
+        // ONLY include PAID POs for profit calculation
+        $paidPos = $allPos->filter(fn($po) => $po->status_paid === 'paid');
+        $paidItems = $paidPos->flatMap->items;
+
+        $productStats = $paidItems->groupBy('product_id')->map(function($items) {
+            $product = $items->first()->product;
+            $totalQuantity = $items->sum('quantity');
+            $totalCost = $items->sum(function($item) {
+                return $item->supplier_price * $item->quantity;
+            });
+            $totalRevenue = $items->sum('total_price');
+            $totalProfit = $totalRevenue - $totalCost;
+            $profitMargin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
+
+            return (object)[
+                'product_id' => $product->id,
+                'product_name' => $product->name,
+                'product_code' => $product->code,
+                'total_quantity' => $totalQuantity,
+                'total_cost' => $totalCost,
+                'total_revenue' => $totalRevenue,
+                'total_profit' => $totalProfit,
+                'profit_margin' => $profitMargin,
+                'avg_cost_per_unit' => $totalQuantity > 0 ? round($totalCost / $totalQuantity, 2) : 0,
+                'avg_revenue_per_unit' => $totalQuantity > 0 ? round($totalRevenue / $totalQuantity, 2) : 0,
+                'avg_profit_per_unit' => $totalQuantity > 0 ? round($totalProfit / $totalQuantity, 2) : 0,
+            ];
+        })->sortByDesc('total_profit')->take($limit);
+
+        return $productStats;
+    }
+
+    /**
+     * Get profit trends by period
+     * ONLY calculate profit for PAID POs
+     */
+    public static function getFilteredProfitTrends($filters = [])
+    {
+        $monthlyData = static::getFilteredMonthlyTrends($filters);
+
+        return $monthlyData->map(function($trend) use ($filters) {
+            // Get POs for this period
+            $periodFilters = $filters;
+            if (strlen($trend->period) === 7) { // Y-m format
+                $periodStart = Carbon::createFromFormat('Y-m', $trend->period)->startOfMonth();
+                $periodEnd = Carbon::createFromFormat('Y-m', $trend->period)->endOfMonth();
+            } else { // Y-m-d format
+                $periodStart = Carbon::parse($trend->period)->startOfDay();
+                $periodEnd = Carbon::parse($trend->period)->endOfDay();
+            }
+
+            $periodFilters['date_from'] = $periodStart->toDateString();
+            $periodFilters['date_until'] = $periodEnd->toDateString();
+
+            $query = static::with(['items.product'])->activeOnly();
+            $query = static::applyFiltersToQuery($query, $periodFilters);
+
+            $periodPos = $query->get();
+
+            // ONLY include PAID POs for profit calculation
+            $paidPeriodPos = $periodPos->filter(fn($po) => $po->status_paid === 'paid');
+            $paidPeriodItems = $paidPeriodPos->flatMap->items;
+
+            $periodCost = $paidPeriodItems->sum(function($item) {
+                return $item->supplier_price * $item->quantity;
+            });
+
+            $periodRevenue = $paidPeriodItems->sum('total_price');
+            $periodProfit = $periodRevenue - $periodCost;
+            $periodMargin = $periodRevenue > 0 ? round(($periodProfit / $periodRevenue) * 100, 2) : 0;
+
+            $trend->total_cost = $periodCost;
+            $trend->total_revenue = $periodRevenue;
+            $trend->total_profit = $periodProfit;
+            $trend->profit_margin = $periodMargin;
+            $trend->paid_pos = $paidPeriodPos->count();
+
+            return $trend;
+        });
+    }
+
+    /**
+     * Get cost vs revenue breakdown by branch
+     * ONLY calculate profit for PAID POs
+     */
+    public static function getFilteredProfitByBranch($filters = [])
+    {
+        $query = PurchaseProduct::with(['user.branch', 'items.product'])
+            ->whereNotIn('status', ['Draft', 'Cancelled']);
+
+        $query = static::applyFiltersToQuery($query, $filters);
+
+        $allPos = $query->get();
+
+        $branchGroups = $allPos->groupBy(function($po) {
+            return $po->user->branch->name ?? 'No Branch';
+        });
+
+        $results = collect();
+
+        foreach ($branchGroups as $branchName => $branchPos) {
+            $branchInfo = $branchPos->first()->user->branch ?? null;
+
+            // ONLY include PAID POs for profit calculation
+            $paidBranchPos = $branchPos->filter(fn($po) => $po->status_paid === 'paid');
+            $paidBranchItems = $paidBranchPos->flatMap->items;
+
+            $totalCost = $paidBranchItems->sum(function($item) {
+                return $item->supplier_price * $item->quantity;
+            });
+
+            $totalRevenue = $paidBranchItems->sum('total_price');
+            $totalProfit = $totalRevenue - $totalCost;
+            $profitMargin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
+
+            // Also track unpaid for context
+            $unpaidBranchPos = $branchPos->filter(fn($po) => $po->status_paid === 'unpaid');
+            $unpaidBranchItems = $unpaidBranchPos->flatMap->items;
+            $potentialRevenue = $unpaidBranchItems->sum('total_price');
+            $potentialCost = $unpaidBranchItems->sum(function($item) {
+                return $item->supplier_price * $item->quantity;
+            });
+
+            $results->push((object)[
+                'branch_id' => $branchInfo->id ?? null,
+                'branch_name' => $branchName,
+                'branch_code' => $branchInfo->code ?? 'N/A',
+                'total_cost' => $totalCost,
+                'total_revenue' => $totalRevenue,
+                'total_profit' => $totalProfit,
+                'profit_margin' => $profitMargin,
+                'total_items' => $paidBranchItems->sum('quantity'),
+                'total_pos' => $branchPos->count(),
+                'paid_pos' => $paidBranchPos->count(),
+                'unpaid_pos' => $unpaidBranchPos->count(),
+                'potential_revenue' => $potentialRevenue,
+                'potential_profit' => $potentialRevenue - $potentialCost,
+            ]);
+        }
+
+        return $results->sortByDesc('total_profit');
+    }
+
+    /**
      * Get filter summary for display
-     * UPDATED: branch_ids menjadi branch_id (single)
      */
     public static function getFilterSummary($filters = [])
     {
         $summary = [];
 
-        // CHANGED: from branch_ids to branch_id
         if (!empty($filters['branch_id'])) {
             $branchName = Branch::find($filters['branch_id'])->name ?? 'Unknown Branch';
             $summary[] = "Branch: {$branchName}";
@@ -163,13 +360,10 @@ class POReportProduct extends Model
 
     /**
      * Get filtered overview statistics with breakdown
-     * Menampilkan total PO value dengan breakdown paid/unpaid
      */
     public static function getFilteredOverviewStats($filters = [])
     {
         $query = static::with(['user.branch'])->activeOnly();
-
-        // Apply filters
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
@@ -177,11 +371,10 @@ class POReportProduct extends Model
         $paidPos = $allPos->filter(fn($po) => $po->status_paid === 'paid');
         $unpaidPos = $allPos->filter(fn($po) => $po->status_paid === 'unpaid');
 
-        $totalPosAmount = $allPos->sum('total_amount'); // Total semua PO
+        $totalPosAmount = $allPos->sum('total_amount');
         $paidAmount = $paidPos->sum('total_amount');
         $outstandingDebt = $unpaidPos->sum('total_amount');
 
-        // Calculate payment rate
         $paymentRate = $totalPosAmount > 0 ? round(($paidAmount / $totalPosAmount) * 100, 1) : 0;
 
         // Credit statistics
@@ -204,22 +397,16 @@ class POReportProduct extends Model
 
         return (object)[
             'total_count' => $allPos->count(),
-            'total_po_amount' => $totalPosAmount, // Total semua PO
+            'total_po_amount' => $totalPosAmount,
             'paid_amount' => $paidAmount,
             'outstanding_debt' => $outstandingDebt,
             'payment_rate' => $paymentRate,
-
-            // Type counts
             'credit_count' => $creditPos->count(),
             'cash_count' => $cashPos->count(),
-
-            // Credit breakdown
             'credit_total_amount' => $creditTotalAmount,
             'credit_paid_amount' => $creditPaidAmount,
             'credit_outstanding' => $creditOutstanding,
             'credit_payment_rate' => $creditPaymentRate,
-
-            // Cash breakdown
             'cash_total_amount' => $cashTotalAmount,
             'cash_paid_amount' => $cashPaidAmount,
             'cash_outstanding' => $cashOutstanding,
@@ -229,13 +416,10 @@ class POReportProduct extends Model
 
     /**
      * Get filtered monthly trends with dynamic date range and breakdown
-     * Dinamis berdasarkan filter date dan menampilkan breakdown
      */
     public static function getFilteredMonthlyTrends($filters = [])
     {
-        // Determine date range based on filters
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
-            // Use filter dates
             $startDate = !empty($filters['date_from']) ? Carbon::parse($filters['date_from']) : Carbon::now()->subYear();
             $endDate = !empty($filters['date_until']) ? Carbon::parse($filters['date_until']) : Carbon::now();
 
@@ -244,7 +428,6 @@ class POReportProduct extends Model
                 ->whereDate('order_date', '>=', $startDate)
                 ->whereDate('order_date', '<=', $endDate);
         } else {
-            // Default: last 12 months
             $startDate = Carbon::now()->subMonths(11)->startOfMonth();
             $endDate = Carbon::now();
 
@@ -253,36 +436,26 @@ class POReportProduct extends Model
                 ->where('order_date', '>=', $startDate);
         }
 
-        // Apply other filters (except date filters since we handled them above)
         $filtersWithoutDate = $filters;
         unset($filtersWithoutDate['date_from'], $filtersWithoutDate['date_until']);
         $query = static::applyFiltersToQuery($query, $filtersWithoutDate);
 
         $allPos = $query->get();
 
-        // Group by appropriate period
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
             $diffInDays = $startDate->diffInDays($endDate);
 
             if ($diffInDays <= 31) {
-                // Daily grouping for periods <= 1 month
                 $groupBy = 'Y-m-d';
-                $format = 'd M';
             } elseif ($diffInDays <= 365) {
-                // Weekly grouping for periods <= 1 year
                 $groupBy = function($po) {
                     return $po->order_date->startOfWeek()->format('Y-m-d');
                 };
-                $format = 'W M Y';
             } else {
-                // Monthly grouping for periods > 1 year
                 $groupBy = 'Y-m';
-                $format = 'M Y';
             }
         } else {
-            // Default monthly grouping
             $groupBy = 'Y-m';
-            $format = 'M Y';
         }
 
         if (is_string($groupBy)) {
@@ -295,12 +468,10 @@ class POReportProduct extends Model
 
         $results = collect();
 
-        // Generate periods dengan breakdown
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
             $diffInDays = $startDate->diffInDays($endDate);
 
             if ($diffInDays <= 31) {
-                // Daily periods
                 for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
                     $key = $date->format('Y-m-d');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -321,12 +492,10 @@ class POReportProduct extends Model
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
-                        // Legacy compatibility
                         'total_amount' => $totalAmount,
                     ]);
                 }
             } elseif ($diffInDays <= 365) {
-                // Weekly periods
                 for ($date = $startDate->copy()->startOfWeek(); $date->lte($endDate); $date->addWeek()) {
                     $key = $date->format('Y-m-d');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -347,12 +516,10 @@ class POReportProduct extends Model
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
-                        // Legacy compatibility
                         'total_amount' => $totalAmount,
                     ]);
                 }
             } else {
-                // Monthly periods
                 for ($date = $startDate->copy()->startOfMonth(); $date->lte($endDate); $date->addMonth()) {
                     $key = $date->format('Y-m');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -373,13 +540,11 @@ class POReportProduct extends Model
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
-                        // Legacy compatibility
                         'total_amount' => $totalAmount,
                     ]);
                 }
             }
         } else {
-            // Default 12 months
             for ($i = 11; $i >= 0; $i--) {
                 $month = Carbon::now()->subMonths($i);
                 $monthKey = $month->format('Y-m');
@@ -401,7 +566,6 @@ class POReportProduct extends Model
                     'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                     'credit_pos' => $monthPos->where('type_po', 'credit')->count(),
                     'cash_pos' => $monthPos->where('type_po', 'cash')->count(),
-                    // Legacy compatibility
                     'total_amount' => $totalAmount,
                 ]);
             }
@@ -448,12 +612,10 @@ class POReportProduct extends Model
 
     /**
      * Get filtered branch summary with breakdown
-     * Menampilkan total PO dengan breakdown paid/unpaid per branch
      */
     public static function getFilteredAccountingSummaryByBranch($filters = [])
     {
         $query = PurchaseProduct::with(['user.branch'])->whereNotIn('status', ['Draft', 'Cancelled']);
-
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
@@ -482,7 +644,6 @@ class POReportProduct extends Model
                 'outstanding_debt' => $outstandingDebt,
                 'payment_rate' => $paymentRate,
                 'average_po_amount' => round($branchPos->avg('total_amount'), 2),
-                // Legacy compatibility
                 'total_amount' => $totalAmount,
             ]);
         }
@@ -528,7 +689,7 @@ class POReportProduct extends Model
     // ===============================
 
     /**
-     * Get accounting summary by branch - ORIGINAL VERSION (for compatibility)
+     * Get accounting summary by branch - ORIGINAL VERSION
      */
     public static function getAccountingSummaryByBranch()
     {
@@ -561,7 +722,7 @@ class POReportProduct extends Model
     }
 
     /**
-     * Get monthly trends - ORIGINAL VERSION (for compatibility)
+     * Get monthly trends - ORIGINAL VERSION
      */
     public static function getMonthlyTrends($months = 12, $userBranchId = null)
     {
@@ -569,7 +730,6 @@ class POReportProduct extends Model
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('order_date', '>=', now()->subMonths($months - 1)->startOfMonth());
 
-        // Filter berdasarkan user role jika diperlukan
         if ($userBranchId) {
             $query->whereHas('user', function($q) use ($userBranchId) {
                 $q->where('branch_id', $userBranchId);
@@ -604,7 +764,7 @@ class POReportProduct extends Model
     }
 
     /**
-     * Get overview statistics - ORIGINAL VERSION (for compatibility)
+     * Get overview statistics - ORIGINAL VERSION
      */
     public static function getOverviewStats()
     {
@@ -627,7 +787,7 @@ class POReportProduct extends Model
     }
 
     /**
-     * Get statistics by type - ORIGINAL VERSION (for compatibility)
+     * Get statistics by type - ORIGINAL VERSION
      */
     public static function getStatsByType()
     {

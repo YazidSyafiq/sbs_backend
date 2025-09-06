@@ -20,6 +20,11 @@ use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByBran
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductByType;
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductLineChart;
 use App\Filament\Resources\POReportProductResource\Widgets\POReportProductBarChart;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductProfitOverview;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductTopProducts;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductProfitAmountChart;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductProfitMarginChart;
+use App\Filament\Resources\POReportProductResource\Widgets\POReportProductProfitByBranch;
 use Filament\Notifications\Notification;
 use App\Models\POReportProduct;
 use Auth;
@@ -32,6 +37,7 @@ class ListPOReportProducts extends ListRecords
 
     protected function getHeaderWidgets(): array
     {
+        $user = Auth::user();
         $widgets = [];
 
         // Only show filter info widget if filters are active
@@ -48,7 +54,7 @@ class ListPOReportProducts extends ListRecords
             $widgets[] = POReportProductFilterInfo::class;
         }
 
-        // Add other widgets
+        // Basic widgets for all users
         $widgets = array_merge($widgets, [
             POReportProductOverview::class,
             POReportProductByBranch::class,
@@ -56,6 +62,17 @@ class ListPOReportProducts extends ListRecords
             POReportProductLineChart::class,
             POReportProductBarChart::class,
         ]);
+
+        // Profit analysis widgets - ONLY for Admin, Supervisor, Manager, Super Admin
+        if ($user && !$user->hasRole('User')) {
+            $widgets = array_merge($widgets, [
+                POReportProductProfitOverview::class,
+                POReportProductTopProducts::class,
+                POReportProductProfitByBranch::class,
+                POReportProductProfitAmountChart::class,
+                POReportProductProfitMarginChart::class,
+            ]);
+        }
 
         return $widgets;
     }
@@ -209,56 +226,4 @@ class ListPOReportProducts extends ListRecords
     {
         return 'Purchase Product Analytics';
     }
-
-    // public function getSubheading(): ?string
-    // {
-    //     $filters = session('po_product_filters', []);
-    //     $activeFilters = collect($filters)
-    //         ->filter(function($value) {
-    //             if (is_array($value)) {
-    //                 return !empty($value);
-    //             }
-    //             return !is_null($value) && $value !== false && $value !== '';
-    //         });
-
-    //     if ($activeFilters->count() > 0) {
-    //         $filterNames = [];
-
-    //         if (!empty($filters['branch_id'])) {
-    //             $branchName = Branch::find($filters['branch_id'])->name ?? 'Unknown Branch';
-    //             $filterNames[] = "Branch: {$branchName}";
-    //         }
-
-    //         if (!empty($filters['type_po'])) {
-    //             $filterNames[] = "Type: " . implode(', ', $filters['type_po']);
-    //         }
-
-    //         if (!empty($filters['status'])) {
-    //             $filterNames[] = "Status: " . implode(', ', $filters['status']);
-    //         }
-
-    //         if (!empty($filters['status_paid'])) {
-    //             $filterNames[] = "Payment: " . implode(', ', $filters['status_paid']);
-    //         }
-
-    //         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
-    //             $dateRange = "Date: ";
-    //             if (!empty($filters['date_from'])) {
-    //                 $dateRange .= "from " . date('d M Y', strtotime($filters['date_from']));
-    //             }
-    //             if (!empty($filters['date_until'])) {
-    //                 $dateRange .= " to " . date('d M Y', strtotime($filters['date_until']));
-    //             }
-    //             $filterNames[] = $dateRange;
-    //         }
-
-    //         if (!empty($filters['outstanding_only'])) {
-    //             $filterNames[] = "Outstanding debts only";
-    //         }
-
-    //         return 'Active filters: ' . implode(' | ', $filterNames) . '. Use Filter Data button to modify.';
-    //     }
-
-    //     return 'Use the Filter Data button above to filter data across all widgets and table.';
-    // }
 }
