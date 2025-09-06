@@ -16,7 +16,7 @@ class ProductAnalyticReportResource extends Resource
 {
     protected static ?string $model = ProductAnalyticReport::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-chart-pie';
+    protected static ?string $navigationIcon = 'heroicon-m-chart-pie';
 
     protected static ?string $navigationGroup = 'Product Management';
 

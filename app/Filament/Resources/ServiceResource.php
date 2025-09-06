@@ -81,7 +81,7 @@ class ServiceResource extends Resource
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
-                            ->label('Price')
+                            ->label('Selling Price')
                             ->columnSpanFull()
                             ->placeholder('Enter Price')
                             ->hint('Example: 10000')
@@ -104,7 +104,7 @@ class ServiceResource extends Resource
                     ->label('Category')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('price')
-                    ->label('Price')
+                    ->label('Selling Price')
                     ->numeric()
                     ->formatStateUsing(function ($state) {
                         if (is_null($state)) return '-';

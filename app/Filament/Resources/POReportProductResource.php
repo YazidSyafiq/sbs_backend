@@ -17,7 +17,7 @@ class POReportProductResource extends Resource
 {
     protected static ?string $model = POReportProduct::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-chart-bar';
+    protected static ?string $navigationIcon = 'heroicon-m-chart-bar';
 
     protected static ?string $navigationGroup = 'Purchase Product Management';
 

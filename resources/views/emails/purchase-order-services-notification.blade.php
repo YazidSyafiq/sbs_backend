@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Purchase Order Supplier Status Update</title>
+    <title>Purchase Order Service Status Update</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
@@ -256,23 +256,15 @@
 
         /* Column specific widths */
         .col-product {
-            width: 45%;
+            width: 40%;
         }
 
         .col-code {
             width: 30%;
         }
 
-        .col-qty {
-            width: 25%;
-        }
-
         .col-price {
-            width: 15%;
-        }
-
-        .col-total {
-            width: 15%;
+            width: 30%;
         }
 
         .total-row {
@@ -419,7 +411,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>PURCHASE ORDER SUPPLIER STATUS UPDATE</h1>
+            <h1>PURCHASE ORDER SERVICE STATUS UPDATE</h1>
             <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
             <p>{{ now()->format('l, d F Y - H:i') }}</p>
         </div>
@@ -428,8 +420,8 @@
             @php
                 $statusMessages = [
                     'Requested' => 'A new purchase request has been submitted and is awaiting approval.',
-                    'Processing' => 'The purchase order has been approved and is now being processed.',
-                    'Received' => 'All items have been received successfully.',
+                    'Approved' => 'The purchase order has been approved and is awaiting to proccess.',
+                    'In Progress' => 'The purchase order is currently in progress and the service is being delivered.',
                     'Done' => 'The purchase order has been completed successfully.',
                     'Cancelled' => 'The purchase order has been cancelled.',
                 ];
@@ -439,12 +431,8 @@
         </div>
 
         <div class="po-info">
-            <h3>Purchase Order Details</h3>
+            <h3>Purchase Order Service Details</h3>
             <table class="po-details-table">
-                <tr>
-                    <td class="po-info-label">Supplier</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->supplier->name }}</td>
-                </tr>
                 <tr>
                     <td class="po-info-label">PO Number</td>
                     <td class="po-info-value">: {{ $purchaseProduct->po_number }}</td>
@@ -457,6 +445,13 @@
                     <td class="po-info-label">Requested By</td>
                     <td class="po-info-value">: {{ $purchaseProduct->user->name }}</td>
                 </tr>
+                @if ($purchaseProduct->user->branch)
+                    <tr>
+                        <td class="po-info-label">Branch</td>
+                        <td class="po-info-value">: {{ $purchaseProduct->user->branch->name }}
+                            ({{ $purchaseProduct->user->branch->code }})</td>
+                    </tr>
+                @endif
                 <tr>
                     <td class="po-info-label">Type</td>
                     <td class="po-info-value">: {{ ucfirst($purchaseProduct->type_po) }} Purchase</td>
@@ -465,10 +460,10 @@
                     <td class="po-info-label">Order Date</td>
                     <td class="po-info-value">: {{ $purchaseProduct->order_date->format('d M Y') }}</td>
                 </tr>
-                @if ($purchaseProduct->received_date)
+                @if ($purchaseProduct->expected_proccess_date)
                     <tr>
-                        <td class="po-info-label">Received Date</td>
-                        <td class="po-info-value">: {{ $purchaseProduct->received_date->format('d M Y') }}
+                        <td class="po-info-label">Scheduled Date</td>
+                        <td class="po-info-value">: {{ $purchaseProduct->expected_proccess_date->format('d M Y') }}
                         </td>
                     </tr>
                 @endif
@@ -480,16 +475,22 @@
             <table>
                 <thead>
                     <tr>
-                        <th class="col-product">Product Name</th>
+                        <th class="col-product">Service Name</th>
                         <th class="col-code">Code</th>
-                        <th class="col-qty">Qty</th>
+                        <th class="col-price">Price</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td><strong>{{ $purchaseProduct->product->name }}</strong></td>
-                        <td>{{ $purchaseProduct->product->code }}</td>
-                        <td>{{ $purchaseProduct->quantity }} pcs</td>
+                    @foreach ($purchaseProduct->items as $item)
+                        <tr>
+                            <td><strong>{{ $item->service->name }}</strong></td>
+                            <td>{{ $item->service->code }}</td>
+                            <td>Rp {{ number_format($item->selling_price, 0, ',', '.') }}</td>
+                        </tr>
+                    @endforeach
+                    <tr class="total-row">
+                        <td colspan="2" style="text-align: right;"><strong>TOTAL AMOUNT:</strong></td>
+                        <td><strong>Rp {{ number_format($purchaseProduct->total_amount, 0, ',', '.') }}</strong></td>
                     </tr>
                 </tbody>
             </table>
@@ -503,14 +504,14 @@
         @endif
 
         {{-- Invoice Download Button - Show only for Requested and Done status --}}
-        @if (in_array($purchaseProduct->status, ['Done']))
+        @if (in_array($purchaseProduct->status, ['Requested', 'Done']))
             <div class="invoice-section">
                 <p class="invoice-text">
-                    <strong>Purchase Order Faktur</strong><br><br>
+                    <strong>Purchase Order Invoice</strong><br><br>
                 </p>
-                <a href="{{ route('purchase-product-supplier.faktur', ['purchaseProduct' => $purchaseProduct->id]) }}"
+                <a href="{{ route('purchase-product.invoice', ['purchaseProduct' => $purchaseProduct->id]) }}"
                     class="invoice-button">
-                    Download Faktur
+                    Download Invoice
                 </a>
                 <p style="font-size: 10px; color: #888; margin-top: 10px; font-style: italic;">
                     Click the button above to download the PDF document

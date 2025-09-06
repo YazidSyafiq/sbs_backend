@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Supplier extends Model
+class Technician extends Model
 {
     use HasFactory, SoftDeletes;
 
@@ -16,11 +16,12 @@ class Supplier extends Model
         'address',
         'phone',
         'email',
+        'price',
         'piutang',
         'total_po'
     ];
 
-    // Auto generate supplier code
+    // Auto generate Technician code
     public static function generateCode(): string
     {
         // Loop untuk mencari nomor yang belum digunakan
@@ -28,28 +29,28 @@ class Supplier extends Model
         $maxAttempts = 1000; // Batasi attempt untuk menghindari infinite loop
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-            // Cari nomor urut terakhir dengan prefix SPR- (termasuk soft deleted)
-            $lastSupplier = static::withTrashed() // Include soft deleted records
-                ->where('code', 'like', 'SPR-%')
+            // Cari nomor urut terakhir dengan prefix TECH- (termasuk soft deleted)
+            $lastTechnician = static::withTrashed() // Include soft deleted records
+                ->where('code', 'like', 'TECH-%')
                 ->orderByRaw('CAST(SUBSTRING(code, 6) AS UNSIGNED) DESC')
                 ->first();
 
-            if ($lastSupplier) {
-                // Extract nomor dari code terakhir (misal: SPR-0005 -> 5)
-                $lastNumber = (int) substr($lastSupplier->code, 5);
+            if ($lastTechnician) {
+                // Extract nomor dari code terakhir (misal: TECH-0005 -> 5)
+                $lastNumber = (int) substr($lastTechnician->code, 5);
                 $nextNumber = $lastNumber + 1;
             }
 
             // Format dengan leading zeros (0001, 0002, dst)
-            $supplierCode = 'SPR-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
+            $TechnicianCode = 'TECH-' . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
             // Cek apakah code sudah ada (termasuk soft deleted)
             $exists = static::withTrashed()
-                ->where('code', $supplierCode)
+                ->where('code', $TechnicianCode)
                 ->exists();
 
             if (!$exists) {
-                return $supplierCode;
+                return $TechnicianCode;
             }
 
             // Jika masih ada yang sama, increment dan coba lagi
@@ -57,6 +58,6 @@ class Supplier extends Model
         }
 
         // Fallback jika semua attempt gagal
-        return 'SPR-' . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
+        return 'TECH-' . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
     }
 }
