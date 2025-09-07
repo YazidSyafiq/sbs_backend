@@ -412,7 +412,7 @@
     <div class="container">
         <div class="header">
             <h1>PURCHASE ORDER SERVICE STATUS UPDATE</h1>
-            <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
+            <p><strong>{{ $purchaseService->po_number }}</strong></p>
             <p>{{ now()->format('l, d F Y - H:i') }}</p>
         </div>
 
@@ -427,7 +427,7 @@
                 ];
             @endphp
             <p><strong>STATUS UPDATE:</strong></p>
-            <p>{{ $statusMessages[$purchaseProduct->status] ?? 'Purchase order status has been updated.' }}</p>
+            <p>{{ $statusMessages[$purchaseService->status] ?? 'Purchase order status has been updated.' }}</p>
         </div>
 
         <div class="po-info">
@@ -435,35 +435,35 @@
             <table class="po-details-table">
                 <tr>
                     <td class="po-info-label">PO Number</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->po_number }}</td>
+                    <td class="po-info-value">: {{ $purchaseService->po_number }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">PO Name</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->name }}</td>
+                    <td class="po-info-value">: {{ $purchaseService->name }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">Requested By</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->user->name }}</td>
+                    <td class="po-info-value">: {{ $purchaseService->user->name }}</td>
                 </tr>
-                @if ($purchaseProduct->user->branch)
+                @if ($purchaseService->user->branch)
                     <tr>
                         <td class="po-info-label">Branch</td>
-                        <td class="po-info-value">: {{ $purchaseProduct->user->branch->name }}
-                            ({{ $purchaseProduct->user->branch->code }})</td>
+                        <td class="po-info-value">: {{ $purchaseService->user->branch->name }}
+                            ({{ $purchaseService->user->branch->code }})</td>
                     </tr>
                 @endif
                 <tr>
                     <td class="po-info-label">Type</td>
-                    <td class="po-info-value">: {{ ucfirst($purchaseProduct->type_po) }} Purchase</td>
+                    <td class="po-info-value">: {{ ucfirst($purchaseService->type_po) }} Purchase</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">Order Date</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->order_date->format('d M Y') }}</td>
+                    <td class="po-info-value">: {{ $purchaseService->order_date->format('d M Y') }}</td>
                 </tr>
-                @if ($purchaseProduct->expected_proccess_date)
+                @if ($purchaseService->expected_proccess_date)
                     <tr>
                         <td class="po-info-label">Scheduled Date</td>
-                        <td class="po-info-value">: {{ $purchaseProduct->expected_proccess_date->format('d M Y') }}
+                        <td class="po-info-value">: {{ $purchaseService->expected_proccess_date->format('d M Y') }}
                         </td>
                     </tr>
                 @endif
@@ -481,7 +481,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($purchaseProduct->items as $item)
+                    @foreach ($purchaseService->items as $item)
                         <tr>
                             <td><strong>{{ $item->service->name }}</strong></td>
                             <td>{{ $item->service->code }}</td>
@@ -490,26 +490,26 @@
                     @endforeach
                     <tr class="total-row">
                         <td colspan="2" style="text-align: right;"><strong>TOTAL AMOUNT:</strong></td>
-                        <td><strong>Rp {{ number_format($purchaseProduct->total_amount, 0, ',', '.') }}</strong></td>
+                        <td><strong>Rp {{ number_format($purchaseService->total_amount, 0, ',', '.') }}</strong></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        @if ($purchaseProduct->notes)
+        @if ($purchaseService->notes)
             <div style="margin-top: 20px; padding: 12px; background-color: #f8f9fa; border-radius: 5px;">
                 <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #333;">Notes:</h4>
-                <p style="margin: 0; font-size: 11px; color: #666;">{{ $purchaseProduct->notes }}</p>
+                <p style="margin: 0; font-size: 11px; color: #666;">{{ $purchaseService->notes }}</p>
             </div>
         @endif
 
         {{-- Invoice Download Button - Show only for Requested and Done status --}}
-        @if (in_array($purchaseProduct->status, ['Requested', 'Done']))
+        @if (in_array($purchaseService->status, ['Approved', 'Done']))
             <div class="invoice-section">
                 <p class="invoice-text">
                     <strong>Purchase Order Invoice</strong><br><br>
                 </p>
-                <a href="{{ route('purchase-product.invoice', ['purchaseProduct' => $purchaseProduct->id]) }}"
+                <a href="{{ route('purchase-service.invoice', ['purchaseService' => $purchaseService->id]) }}"
                     class="invoice-button">
                     Download Invoice
                 </a>

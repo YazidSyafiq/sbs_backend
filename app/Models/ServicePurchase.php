@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use App\Mail\PurchaseOrderServicesNotification;
 
 class ServicePurchase extends Model
 {
@@ -44,91 +45,91 @@ class ServicePurchase extends Model
         return $this->hasMany(ServicePurchaseItem::class);
     }
 
-    // /**
-    // * Send email notification for PO status change
-    // */
-    // private function sendStatusChangeEmail(): void
-    // {
-    //     try {
-    //         // Load relationship yang dibutuhkan untuk email
-    //         $this->load(['user.branch', 'items.product']);
+    /**
+    * Send email notification for PO status change
+    */
+    private function sendStatusChangeEmail(): void
+    {
+        try {
+            // Load relationship yang dibutuhkan untuk email
+            $this->load(['user.branch', 'items.service']);
 
-    //         $recipients = [];
+            $recipients = [];
 
-    //         // Tentukan penerima email berdasarkan status PO
-    //         switch ($this->status) {
-    //             case 'Requested':
-    //                 // Kirim ke Admin, Supervisor, Manager, Super Admin
-    //                 $recipients = User::whereHas('roles', function ($query) {
-    //                     $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
-    //                 })->get();
-    //                 break;
+            // Tentukan penerima email berdasarkan status PO
+            switch ($this->status) {
+                case 'Requested':
+                    // Kirim ke Admin, Supervisor, Manager, Super Admin
+                    $recipients = User::whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
+                    })->get();
+                    break;
 
-    //             case 'Approved':
-    //             case 'In Progress':
-    //             case 'Cancelled':
-    //                 // Kirim ke User, Admin, dan Supervisor
-    //                 $recipients = User::whereHas('roles', function ($query) {
-    //                     $query->whereIn('name', ['User', 'Admin', 'Supervisor']);
-    //                 })->get();
-    //                 break;
-    //             case 'Done':
-    //                 $recipients = User::whereHas('roles', function ($query) {
-    //                     $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
-    //                 })->get();
-    //                 break;
+                case 'Approved':
+                case 'In Progress':
+                case 'Cancelled':
+                    // Kirim ke User, Admin, dan Supervisor
+                    $recipients = User::whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['User', 'Admin', 'Supervisor']);
+                    })->get();
+                    break;
+                case 'Done':
+                    $recipients = User::whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
+                    })->get();
+                    break;
 
-    //             default:
-    //                 // Status lain tidak perlu notifikasi email
-    //                 return;
-    //         }
+                default:
+                    // Status lain tidak perlu notifikasi email
+                    return;
+            }
 
-    //         // Filter recipients berdasarkan role dan branch
-    //         if ($this->user && $this->user->branch_id) {
-    //             $recipients = $recipients->filter(function ($user) {
-    //                 // Admin, Supervisor, Manager, dan Super Admin bisa melihat semua branch
-    //                 if ($user->hasAnyRole(['Admin', 'Supervisor', 'Manager', 'Super Admin'])) {
-    //                     return true;
-    //                 }
+            // Filter recipients berdasarkan role dan branch
+            if ($this->user && $this->user->branch_id) {
+                $recipients = $recipients->filter(function ($user) {
+                    // Admin, Supervisor, Manager, dan Super Admin bisa melihat semua branch
+                    if ($user->hasAnyRole(['Admin', 'Supervisor', 'Manager', 'Super Admin'])) {
+                        return true;
+                    }
 
-    //                 // User hanya yang melakukan request PO tersebut
-    //                 if ($user->hasRole('User')) {
-    //                     return $user->id === $this->user_id;
-    //                 }
+                    // User hanya yang melakukan request PO tersebut
+                    if ($user->hasRole('User')) {
+                        return $user->id === $this->user_id;
+                    }
 
-    //                 return false;
-    //             });
-    //         }
+                    return false;
+                });
+            }
 
-    //         // Kirim email ke setiap penerima
-    //         foreach ($recipients as $recipient) {
-    //             try {
-    //                 Mail::to($recipient->email)->send(
-    //                     new PurchaseOrderProductsNotification($this)
-    //                 );
+            // Kirim email ke setiap penerima
+            foreach ($recipients as $recipient) {
+                try {
+                    Mail::to($recipient->email)->send(
+                        new PurchaseOrderServicesNotification($this)
+                    );
 
-    //                 Log::info("PO status email sent", [
-    //                     'po_number' => $this->po_number,
-    //                     'status' => $this->status,
-    //                     'recipient' => $recipient->email
-    //                 ]);
-    //             } catch (\Exception $e) {
-    //                 Log::error("Failed to send PO status email", [
-    //                     'po_number' => $this->po_number,
-    //                     'status' => $this->status,
-    //                     'recipient' => $recipient->email,
-    //                     'error' => $e->getMessage()
-    //                 ]);
-    //             }
-    //         }
-    //     } catch (\Exception $e) {
-    //         Log::error("Failed to process PO status email", [
-    //             'po_number' => $this->po_number,
-    //             'status' => $this->status,
-    //             'error' => $e->getMessage()
-    //         ]);
-    //     }
-    // }
+                    Log::info("PO status email sent", [
+                        'po_number' => $this->po_number,
+                        'status' => $this->status,
+                        'recipient' => $recipient->email
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error("Failed to send PO status email", [
+                        'po_number' => $this->po_number,
+                        'status' => $this->status,
+                        'recipient' => $recipient->email,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Failed to process PO status email", [
+                'po_number' => $this->po_number,
+                'status' => $this->status,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
 
     public static function generatePoNumber(int $userId, string $orderDate): string
     {
@@ -180,5 +181,199 @@ class ServicePurchase extends Model
     {
         $this->total_amount = $this->items()->sum('selling_price');
         $this->save();
+    }
+
+    public function getInvoiceUrl(): string
+    {
+        return URL::route('purchase-service.invoice', ['purchaseService' => $this->id]);
+    }
+
+    public function cancel(): void
+    {
+        $this->status = 'Cancelled';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+    }
+
+    public function canBeRequested(): array
+    {
+        $validationErrors = [];
+
+        // Cek apakah ada items
+        if ($this->items()->count() === 0) {
+            $validationErrors[] = 'Purchase order must have at least one item';
+        }
+
+        // Cek validasi berdasarkan type_po
+        if ($this->type_po === 'cash') {
+            // Untuk cash purchase, harus sudah bayar dan ada bukti transfer
+            if ($this->status_paid !== 'paid') {
+                $validationErrors[] = 'Cash purchase requires payment status to be "Paid"';
+            }
+
+            if (empty($this->bukti_tf)) {
+                $validationErrors[] = 'Cash purchase requires payment receipt upload';
+            }
+        }
+
+        // Cek apakah name sudah diisi
+        if (empty($this->name)) {
+            $validationErrors[] = 'PO Name is required';
+        }
+
+        return [
+            'can_request' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function request(): bool
+    {
+        $requestCheck = $this->canBeRequested();
+
+        if (!$requestCheck['can_request']) {
+            return false;
+        }
+
+        $this->status = 'Requested';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+
+        return true;
+    }
+
+    public function canBeApproved(): array
+    {
+        $validationErrors = [];
+
+        // Cek apakah semua technician sudah diisi
+        $itemsWithoutTechnician = $this->items()->whereNull('technician_id')->count();
+        // Atau jika menggunakan field berbeda, ganti 'technician_id' dengan field yang sesuai
+        // $itemsWithoutTechnician = $this->items()->where('technician_id', '')->count();
+
+        if ($itemsWithoutTechnician > 0) {
+            $validationErrors[] = 'All items must have technician assigned before approval';
+        }
+
+        return [
+            'can_approve' => empty($validationErrors), // Perbaikan: seharusnya 'can_approve' bukan 'can_request'
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function approve(): bool
+    {
+        $requestCheck = $this->canBeApproved();
+
+        if (!$requestCheck['can_approve']) {
+            return false;
+        }
+
+        foreach ($this->items as $item) {
+            $technician = Technician::where('id', $item->technician_id)->first();
+
+            $technician->update([
+                'total_po' => $technician->total_po + $item->cost_price,
+            ]);
+
+            if ($this->type_po === 'credit') {
+                $technician->update([
+                    'piutang' => $technician->piutang + $item->cost_price,
+                ]);
+            }
+        }
+
+        $this->status = 'Approved';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+
+        return true;
+    }
+
+    public function canBeProgress(): array
+    {
+        $validationErrors = [];
+
+        // Cek apakah name sudah diisi
+        if (empty($this->expected_proccess_date)) {
+            $validationErrors[] = 'Expected proccess date must be set before proccess';
+        }
+
+        return [
+            'can_proccess' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function progress(): bool
+    {
+        $requestCheck = $this->canBeProgress();
+
+        if (!$requestCheck['can_proccess']) {
+            return false;
+        }
+
+        $this->status = 'In Progress';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+
+        return true;
+    }
+
+     public function canBeCompleted(): array
+    {
+        $validationErrors = [];
+
+        // Cek validasi untuk credit purchase
+        if ($this->type_po === 'credit') {
+            // Untuk credit purchase, harus sudah bayar dan ada bukti transfer
+            if ($this->status_paid !== 'paid') {
+                $validationErrors[] = 'Credit purchase requires payment status to be "Paid"';
+            }
+
+            if (empty($this->bukti_tf)) {
+                $validationErrors[] = 'Credit purchase requires payment receipt upload';
+            }
+        }
+
+        return [
+            'can_complete' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function done(): bool
+    {
+        $requestCheck = $this->canBeCompleted();
+
+        if (!$requestCheck['can_complete']) {
+            return false;
+        }
+
+        foreach ($this->items as $item) {
+            $technician = Technician::where('id', $item->technician_id)->first();
+
+            if ($this->type_po === 'credit') {
+                $technician->update([
+                    'piutang' => $technician->piutang - $item->cost_price,
+                ]);
+            }
+        }
+
+        $this->status = 'Done';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+
+        return true;
     }
 }

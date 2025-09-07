@@ -20,9 +20,9 @@ class TechnicianResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-bolt';
 
-    protected static ?string $navigationGroup = 'Service Management';
+    protected static ?string $navigationGroup = 'Purchase Service Management';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 14;
 
     public static function getModelLabel(): string
     {

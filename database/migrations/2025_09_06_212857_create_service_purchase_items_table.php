@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('service_purchase_id')->constrained('service_purchases')->cascadeOnDelete();
             $table->foreignId('service_id')->constrained('services')->cascadeOnDelete();
-            $table->foreignId('technician_id')->constrained('technicians')->cascadeOnDelete();
-            $table->decimal('cost_price', 10, 2);
+            $table->foreignId('technician_id')->nullable()->constrained('technicians')->cascadeOnDelete();
+            $table->decimal('cost_price', 10, 2)->nullable();
             $table->decimal('selling_price', 10, 2);
             $table->timestamps();
             $table->softDeletes();
