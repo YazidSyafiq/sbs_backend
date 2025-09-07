@@ -1,26 +1,30 @@
 <?php
 
-namespace App\Filament\Resources\POReportProductResource\Widgets;
+namespace App\Filament\Resources\POReportServiceResource\Widgets;
 
-use App\Models\POReportProduct;
+use App\Models\POReportService;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Auth;
 
-class POReportProductByBranch extends BaseWidget
+class POReportServiceByBranch extends BaseWidget
 {
     protected function getStats(): array
     {
-        $filters = session('po_product_filters', []);
+        $filters = session('po_service_filters', []);
         $user = Auth::user();
         $isUserRole = $user && $user->hasRole('User');
         $stats = [];
 
-        // Use POReportProduct model method
-        $branchStats = POReportProduct::getFilteredAccountingSummaryByBranch($filters);
+        // Use POReportService model method
+        $branchStats = POReportService::getFilteredAccountingSummaryByBranch($filters);
 
         // Limit to first 10 branches to avoid overcrowding
         $branchStats = $branchStats->take(10);
+
+        // Different labels based on user role
+        $receivedLabel = $isUserRole ? 'Paid' : 'Received';
+        $outstandingLabel = $isUserRole ? 'Unpaid' : 'Outstanding';
 
         foreach ($branchStats as $branch) {
             $branchName = $branch->branch_name ?: 'No Branch';
@@ -29,18 +33,15 @@ class POReportProductByBranch extends BaseWidget
             $displayName = strlen($branchName) > 15 ? substr($branchName, 0, 15) . '...' : $branchName;
 
             // Widget untuk total PO value
-            $stats[] = Stat::make($displayName . ' - POs', number_format($branch->total_pos) . ' orders')
+            $stats[] = Stat::make($displayName . ' - Services', number_format($branch->total_pos) . ' orders')
                 ->description('Total Value: Rp ' . number_format($branch->total_po_amount, 0, ',', '.'))
                 ->descriptionIcon('heroicon-m-building-storefront')
                 ->color('info');
 
-            // Widget untuk breakdown dengan perspektif yang sesuai
-            $paidReceived = $isUserRole ? 'Paid' : 'Received';
-            $outstandingDebt = $isUserRole ? 'Unpaid' : 'Outstanding';
-
+            // Widget untuk breakdown received vs outstanding
             $stats[] = Stat::make($displayName . ' - Status', $branch->payment_rate . '% paid')
-                ->description($paidReceived . ': Rp ' . number_format($branch->paid_amount, 0, ',', '.') .
-                           ' | ' . $outstandingDebt . ': Rp ' . number_format($branch->outstanding_debt, 0, ',', '.'))
+                ->description($receivedLabel . ': Rp ' . number_format($branch->paid_amount, 0, ',', '.') .
+                           ' | ' . $outstandingLabel . ': Rp ' . number_format($branch->outstanding_debt, 0, ',', '.'))
                 ->descriptionIcon($branch->payment_rate >= 80 ? 'heroicon-m-check-circle' :
                                 ($branch->payment_rate >= 50 ? 'heroicon-m-clock' : 'heroicon-m-exclamation-triangle'))
                 ->color($branch->payment_rate >= 80 ? 'success' :
@@ -49,7 +50,7 @@ class POReportProductByBranch extends BaseWidget
 
         if ($branchStats->isEmpty()) {
             $stats[] = Stat::make('No Data', 'No branch data found')
-                ->description('No purchase orders match the current filters')
+                ->description('No service purchase orders match the current filters')
                 ->descriptionIcon('heroicon-m-information-circle')
                 ->color('gray');
         }
@@ -64,13 +65,13 @@ class POReportProductByBranch extends BaseWidget
 
     public function getHeading(): ?string
     {
-        $filters = session('po_product_filters', []);
-        $branchStats = POReportProduct::getFilteredAccountingSummaryByBranch($filters);
+        $filters = session('po_service_filters', []);
+        $branchStats = POReportService::getFilteredAccountingSummaryByBranch($filters);
 
         $totalBranches = $branchStats->count();
         $showing = min($totalBranches, 10);
 
-        $title = 'Accounting Summary by Branch';
+        $title = 'Service Accounting Summary by Branch';
         if ($totalBranches > 10) {
             $title .= " (Showing top {$showing} of {$totalBranches})";
         }

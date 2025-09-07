@@ -1,82 +1,71 @@
 <?php
 
-namespace App\Filament\Resources\POReportProductResource\Widgets;
+namespace App\Filament\Resources\POReportServiceResource\Widgets;
 
-use App\Models\POReportProduct;
+use App\Models\POReportService;
 use Filament\Widgets\ChartWidget;
-use Auth;
 
-class POReportProductLineChart extends ChartWidget
+class POReportServiceProfitAmountChart extends ChartWidget
 {
-    protected static ?string $heading = 'Financial Trends';
-    protected static ?string $maxHeight = '500px';
-
-    // ADD THIS: Full width column span
+    protected static ?string $heading = 'Service Revenue vs Cost vs Profit Trends';
+    protected static ?string $maxHeight = '400px';
     protected int | string | array $columnSpan = 'full';
 
     protected function getData(): array
     {
-        $filters = session('po_product_filters', []);
-        $user = Auth::user();
-        $isUserRole = $user && $user->hasRole('User');
+        $filters = session('po_service_filters', []);
+        $profitData = POReportService::getFilteredProfitTrends($filters);
 
-        $monthlyData = POReportProduct::getFilteredMonthlyTrends($filters);
-
-        $labels = $monthlyData->pluck('period_name')->toArray();
+        $labels = $profitData->pluck('period_name')->toArray();
 
         // Convert to millions for better readability
-        $totalAmounts = $monthlyData->pluck('total_po_amount')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
-        $paidAmounts = $monthlyData->pluck('paid_amount')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
-        $outstandingAmounts = $monthlyData->pluck('outstanding_debt')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
-
-        // Different labels based on user role
-        $totalLabel = 'Total PO Value';
-        $paidLabel = $isUserRole ? 'Amount Paid' : 'Amount Received';
-        $outstandingLabel = $isUserRole ? 'Outstanding Payment' : 'Outstanding Debt';
+        $costs = $profitData->pluck('total_cost')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
+        $revenues = $profitData->pluck('total_revenue')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
+        $profits = $profitData->pluck('total_profit')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
 
         return [
             'datasets' => [
                 [
-                    'label' => $totalLabel,
-                    'data' => $totalAmounts,
-                    'borderColor' => 'rgb(59, 130, 246)',
-                    'backgroundColor' => 'rgba(59, 130, 246, 0.1)',
+                    'label' => 'Service Revenue (Paid Orders)',
+                    'data' => $revenues,
+                    'borderColor' => 'rgb(34, 197, 94)',
+                    'backgroundColor' => 'rgba(34, 197, 94, 0.1)',
                     'fill' => false,
                     'tension' => 0.4,
-                    'pointRadius' => 4,
+                    'pointRadius' => 5,
                     'pointHoverRadius' => 8,
-                    'pointBackgroundColor' => 'rgb(59, 130, 246)',
+                    'pointBackgroundColor' => 'rgb(34, 197, 94)',
                     'pointBorderColor' => '#fff',
                     'pointBorderWidth' => 2,
                     'borderWidth' => 3,
                 ],
                 [
-                    'label' => $paidLabel,
-                    'data' => $paidAmounts,
-                    'borderColor' => 'rgb(34, 197, 94)',
-                    'backgroundColor' => 'rgba(34, 197, 94, 0.3)',
-                    'fill' => 'origin',
-                    'tension' => 0.4,
-                    'pointRadius' => 4,
-                    'pointHoverRadius' => 8,
-                    'pointBackgroundColor' => 'rgb(34, 197, 94)',
-                    'pointBorderColor' => '#fff',
-                    'pointBorderWidth' => 2,
-                    'borderWidth' => 2,
-                ],
-                [
-                    'label' => $outstandingLabel,
-                    'data' => $outstandingAmounts,
+                    'label' => 'Service Cost (Paid Orders)',
+                    'data' => $costs,
                     'borderColor' => 'rgb(239, 68, 68)',
-                    'backgroundColor' => 'rgba(239, 68, 68, 0.3)',
-                    'fill' => 'origin',
+                    'backgroundColor' => 'rgba(239, 68, 68, 0.1)',
+                    'fill' => false,
                     'tension' => 0.4,
-                    'pointRadius' => 4,
+                    'pointRadius' => 5,
                     'pointHoverRadius' => 8,
                     'pointBackgroundColor' => 'rgb(239, 68, 68)',
                     'pointBorderColor' => '#fff',
                     'pointBorderWidth' => 2,
-                    'borderWidth' => 2,
+                    'borderWidth' => 3,
+                ],
+                [
+                    'label' => 'Realized Service Profit',
+                    'data' => $profits,
+                    'borderColor' => 'rgb(59, 130, 246)',
+                    'backgroundColor' => 'rgba(59, 130, 246, 0.3)',
+                    'fill' => 'origin',
+                    'tension' => 0.4,
+                    'pointRadius' => 5,
+                    'pointHoverRadius' => 8,
+                    'pointBackgroundColor' => 'rgb(59, 130, 246)',
+                    'pointBorderColor' => '#fff',
+                    'pointBorderWidth' => 2,
+                    'borderWidth' => 3,
                 ],
             ],
             'labels' => $labels,
@@ -105,26 +94,36 @@ class POReportProductLineChart extends ChartWidget
                         'display' => true,
                         'text' => 'Amount (Million Rp)',
                         'font' => [
-                            'size' => 12,
+                            'size' => 14,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'color' => 'rgba(0, 0, 0, 0.1)',
                     ],
+                    'ticks' => [
+                        'font' => [
+                            'size' => 12
+                        ]
+                    ]
                 ],
                 'x' => [
                     'title' => [
                         'display' => true,
                         'text' => 'Period',
                         'font' => [
-                            'size' => 12,
+                            'size' => 14,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'display' => false,
                     ],
+                    'ticks' => [
+                        'font' => [
+                            'size' => 12
+                        ]
+                    ]
                 ],
             ],
             'interaction' => [
@@ -137,9 +136,10 @@ class POReportProductLineChart extends ChartWidget
                     'position' => 'top',
                     'labels' => [
                         'usePointStyle' => true,
-                        'padding' => 20,
+                        'padding' => 25,
                         'font' => [
-                            'size' => 12
+                            'size' => 13,
+                            'weight' => 'bold'
                         ]
                     ]
                 ],
@@ -153,7 +153,7 @@ class POReportProductLineChart extends ChartWidget
                     'borderColor' => 'rgba(255, 255, 255, 0.3)',
                     'borderWidth' => 1,
                     'cornerRadius' => 8,
-                    'padding' => 12,
+                    'padding' => 15,
                     'displayColors' => true,
                     'titleFont' => [
                         'size' => 14,
@@ -169,21 +169,12 @@ class POReportProductLineChart extends ChartWidget
 
     public function getHeading(): ?string
     {
-        $filters = session('po_product_filters', []);
-        $user = Auth::user();
-        $isUserRole = $user && $user->hasRole('User');
-
-        $headingPrefix = $isUserRole ? 'Purchase Payment Trends' : 'Financial Trends';
-        return $headingPrefix . ' (' . POReportProduct::getPeriodLabel($filters) . ')';
+        $filters = session('po_service_filters', []);
+        return 'Realized Service Revenue vs Cost vs Profit (' . POReportService::getPeriodLabel($filters) . ')';
     }
 
     public function getDescription(): ?string
     {
-        $user = Auth::user();
-        $isUserRole = $user && $user->hasRole('User');
-
-        return $isUserRole ?
-            'Blue line shows total PO value, green shows paid amounts, red shows unpaid amounts' :
-            'Blue line shows total PO value, green shows received amounts, red shows outstanding debts';
+        return 'Service financial performance trends from paid orders only - showing actual revenue, cost, and profit';
     }
 }

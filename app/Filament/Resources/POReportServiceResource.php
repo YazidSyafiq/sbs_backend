@@ -2,9 +2,8 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\POReportProductResource\Pages;
-use App\Filament\Resources\POReportProductResource\RelationManagers;
-use App\Models\POReportProduct;
+use App\Filament\Resources\POReportServiceResource\Pages;
+use App\Models\POReportService;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
@@ -13,24 +12,24 @@ use Illuminate\Database\Eloquent\Builder;
 use Filament\Forms;
 use Auth;
 
-class POReportProductResource extends Resource
+class POReportServiceResource extends Resource
 {
-    protected static ?string $model = POReportProduct::class;
+    protected static ?string $model = POReportService::class;
 
     protected static ?string $navigationIcon = 'heroicon-m-chart-bar';
 
-    protected static ?string $navigationGroup = 'Purchase Product Management';
+    protected static ?string $navigationGroup = 'Purchase Service Management';
 
-    protected static ?int $navigationSort = 13;
+    protected static ?int $navigationSort = 16;
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Product Analytic';
+        return 'Purchase Service Analytic';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Product Analytics';
+        return 'Purchase Service Analytics';
     }
 
     public static function table(Table $table): Table
@@ -41,16 +40,16 @@ class POReportProductResource extends Resource
         return $table
             ->modifyQueryUsing(function (Builder $query) {
                 $user = Auth::user();
-                $filters = session('po_product_filters', []);
+                $filters = session('po_service_filters', []);
 
                 // Join dengan user dan branch untuk data lengkap
                 $query->select([
-                    'purchase_products.*',
+                    'service_purchases.*',
                     'users.name as user_name',
                     'branches.name as branch_name',
                     'branches.code as branch_code',
                 ])
-                ->leftJoin('users', 'purchase_products.user_id', '=', 'users.id')
+                ->leftJoin('users', 'service_purchases.user_id', '=', 'users.id')
                 ->leftJoin('branches', 'users.branch_id', '=', 'branches.id');
 
                 // Use existing scopes
@@ -62,27 +61,33 @@ class POReportProductResource extends Resource
                 }
 
                 if (!empty($filters['type_po'])) {
-                    $query->whereIn('purchase_products.type_po', $filters['type_po']);
+                    $query->whereIn('service_purchases.type_po', $filters['type_po']);
                 }
 
                 if (!empty($filters['status'])) {
-                    $query->whereIn('purchase_products.status', $filters['status']);
+                    $query->whereIn('service_purchases.status', $filters['status']);
                 }
 
                 if (!empty($filters['status_paid'])) {
-                    $query->whereIn('purchase_products.status_paid', $filters['status_paid']);
+                    $query->whereIn('service_purchases.status_paid', $filters['status_paid']);
+                }
+
+                if (!empty($filters['technician_id'])) {
+                    $query->whereHas('items', function($q) use ($filters) {
+                        $q->where('technician_id', $filters['technician_id']);
+                    });
                 }
 
                 if (!empty($filters['date_from'])) {
-                    $query->whereDate('purchase_products.order_date', '>=', $filters['date_from']);
+                    $query->whereDate('service_purchases.order_date', '>=', $filters['date_from']);
                 }
 
                 if (!empty($filters['date_until'])) {
-                    $query->whereDate('purchase_products.order_date', '<=', $filters['date_until']);
+                    $query->whereDate('service_purchases.order_date', '<=', $filters['date_until']);
                 }
 
                 if (!empty($filters['outstanding_only'])) {
-                    $query->where('purchase_products.status_paid', 'unpaid');
+                    $query->where('service_purchases.status_paid', 'unpaid');
                 }
 
                 // Role-based filtering using existing scope
@@ -126,9 +131,8 @@ class POReportProductResource extends Resource
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'Requested' => 'amber',
-                        'Processing' => 'blue',
-                        'Shipped' => 'purple',
-                        'Received' => 'emerald',
+                        'Approved' => 'blue',
+                        'In Progress' => 'purple',
                         'Done' => 'success',
                         default => 'slate'
                     }),
@@ -183,11 +187,11 @@ class POReportProductResource extends Resource
                     ->label('View Original PO')
                     ->icon('heroicon-o-arrow-top-right-on-square')
                     ->color('info')
-                    ->url(fn ($record) => route('filament.admin.resources.purchase-products.view', ['record' => $record]))
+                    ->url(fn ($record) => route('filament.admin.resources.service-purchases.view', ['record' => $record]))
                     ->openUrlInNewTab(),
             ])
-            ->emptyStateHeading('No Purchase Orders Found')
-            ->emptyStateDescription('There are no purchase orders matching your current filters.')
+            ->emptyStateHeading('No Service Purchase Orders Found')
+            ->emptyStateDescription('There are no service purchase orders matching your current filters.')
             ->striped()
             ->paginated([10, 25, 50, 100]);
     }
@@ -211,7 +215,7 @@ class POReportProductResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListPOReportProducts::route('/'),
+            'index' => Pages\ListPOReportServices::route('/'),
         ];
     }
 }

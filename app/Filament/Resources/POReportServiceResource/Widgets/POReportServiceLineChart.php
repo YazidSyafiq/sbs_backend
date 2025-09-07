@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Filament\Resources\POReportProductResource\Widgets;
+namespace App\Filament\Resources\POReportServiceResource\Widgets;
 
-use App\Models\POReportProduct;
+use App\Models\POReportService;
 use Filament\Widgets\ChartWidget;
 use Auth;
 
-class POReportProductLineChart extends ChartWidget
+class POReportServiceLineChart extends ChartWidget
 {
-    protected static ?string $heading = 'Financial Trends';
+    protected static ?string $heading = 'Service Financial Trends';
     protected static ?string $maxHeight = '500px';
 
     // ADD THIS: Full width column span
@@ -16,11 +16,11 @@ class POReportProductLineChart extends ChartWidget
 
     protected function getData(): array
     {
-        $filters = session('po_product_filters', []);
+        $filters = session('po_service_filters', []);
         $user = Auth::user();
         $isUserRole = $user && $user->hasRole('User');
 
-        $monthlyData = POReportProduct::getFilteredMonthlyTrends($filters);
+        $monthlyData = POReportService::getFilteredMonthlyTrends($filters);
 
         $labels = $monthlyData->pluck('period_name')->toArray();
 
@@ -30,7 +30,7 @@ class POReportProductLineChart extends ChartWidget
         $outstandingAmounts = $monthlyData->pluck('outstanding_debt')->map(fn($amount) => round($amount / 1000000, 2))->toArray();
 
         // Different labels based on user role
-        $totalLabel = 'Total PO Value';
+        $totalLabel = 'Total Service Value';
         $paidLabel = $isUserRole ? 'Amount Paid' : 'Amount Received';
         $outstandingLabel = $isUserRole ? 'Outstanding Payment' : 'Outstanding Debt';
 
@@ -169,12 +169,12 @@ class POReportProductLineChart extends ChartWidget
 
     public function getHeading(): ?string
     {
-        $filters = session('po_product_filters', []);
+        $filters = session('po_service_filters', []);
         $user = Auth::user();
         $isUserRole = $user && $user->hasRole('User');
 
-        $headingPrefix = $isUserRole ? 'Purchase Payment Trends' : 'Financial Trends';
-        return $headingPrefix . ' (' . POReportProduct::getPeriodLabel($filters) . ')';
+        $headingPrefix = $isUserRole ? 'Service Payment Trends' : 'Service Financial Trends';
+        return $headingPrefix . ' (' . POReportService::getPeriodLabel($filters) . ')';
     }
 
     public function getDescription(): ?string
@@ -183,7 +183,7 @@ class POReportProductLineChart extends ChartWidget
         $isUserRole = $user && $user->hasRole('User');
 
         return $isUserRole ?
-            'Blue line shows total PO value, green shows paid amounts, red shows unpaid amounts' :
-            'Blue line shows total PO value, green shows received amounts, red shows outstanding debts';
+            'Blue line shows total service value, green shows paid amounts, red shows unpaid amounts' :
+            'Blue line shows total service value, green shows received amounts, red shows outstanding debts';
     }
 }

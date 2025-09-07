@@ -1,45 +1,45 @@
 <?php
 
-namespace App\Filament\Resources\POReportProductResource\Widgets;
+namespace App\Filament\Resources\POReportServiceResource\Widgets;
 
-use App\Models\POReportProduct;
+use App\Models\POReportService;
 use App\Models\Branch;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Auth;
 
-class POReportProductOverview extends BaseWidget
+class POReportServiceOverview extends BaseWidget
 {
     protected function getStats(): array
     {
-        $filters = session('po_product_filters', []);
+        $filters = session('po_service_filters', []);
         $user = Auth::user();
         $isUserRole = $user && $user->hasRole('User');
 
-        // Use POReportProduct model method
-        $stats = POReportProduct::getFilteredOverviewStats($filters);
+        // Use POReportService model method
+        $stats = POReportService::getFilteredOverviewStats($filters);
 
         // Get contextual stats for the 6th card
         $contextStats = $this->getContextualStats($filters, $stats, $isUserRole);
 
         return [
-            Stat::make('Total Purchase Orders', number_format($stats->total_count))
-                ->description('All active POs')
-                ->descriptionIcon('heroicon-m-shopping-cart')
+            Stat::make('Total Service Orders', number_format($stats->total_count))
+                ->description('All active service POs')
+                ->descriptionIcon('heroicon-m-wrench-screwdriver')
                 ->color('info'),
 
-            Stat::make('Total PO Value', 'Rp ' . number_format($stats->total_po_amount, 0, ',', '.'))
-                ->description($isUserRole ? 'Total purchase amount' : 'All PO amounts combined')
+            Stat::make('Total Service Value', 'Rp ' . number_format($stats->total_po_amount, 0, ',', '.'))
+                ->description($isUserRole ? 'Total service purchase amount' : 'All service PO amounts combined')
                 ->descriptionIcon('heroicon-m-clipboard-document-list')
                 ->color('primary'),
 
             Stat::make($isUserRole ? 'Amount Paid' : 'Amount Received', 'Rp ' . number_format($stats->paid_amount, 0, ',', '.'))
-                ->description($stats->payment_rate . '% of total PO value')
+                ->description($stats->payment_rate . '% of total service value')
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('success'),
 
             Stat::make($isUserRole ? 'Outstanding Payment' : 'Outstanding Debt', 'Rp ' . number_format($stats->outstanding_debt, 0, ',', '.'))
-                ->description((100 - $stats->payment_rate) . '% of total PO value')
+                ->description((100 - $stats->payment_rate) . '% of total service value')
                 ->descriptionIcon('heroicon-m-exclamation-triangle')
                 ->color($stats->outstanding_debt > 0 ? 'danger' : 'success'),
 
@@ -65,9 +65,12 @@ class POReportProductOverview extends BaseWidget
         $hasDateFilter = !empty($filters['date_from']) || !empty($filters['date_until']);
         $hasTypeFilter = !empty($filters['type_po']);
         $hasStatusFilter = !empty($filters['status']) || !empty($filters['status_paid']);
+        $hasTechnicianFilter = !empty($filters['technician_id']);
         $hasOutstandingFilter = !empty($filters['outstanding_only']);
 
-        if ($hasDateFilter) {
+        if ($hasTechnicianFilter) {
+            return $this->getTechnicianFilterContext($filters, $currentStats, $isUserRole);
+        } elseif ($hasDateFilter) {
             return $this->getDateFilterContext($filters, $currentStats, $isUserRole);
         } elseif ($hasTypeFilter) {
             return $this->getTypeFilterContext($filters, $currentStats, $isUserRole);
@@ -78,6 +81,21 @@ class POReportProductOverview extends BaseWidget
         } else {
             return $this->getDefaultContext($isUserRole);
         }
+    }
+
+    private function getTechnicianFilterContext($filters, $currentStats, $isUserRole): array
+    {
+        $technicianName = \App\Models\Technician::find($filters['technician_id'])->name ?? 'Unknown Technician';
+
+        $description = 'Total: Rp ' . number_format($currentStats->total_po_amount, 0, ',', '.') . ' (' . $currentStats->payment_rate . '% paid)';
+
+        return [
+            'title' => 'Technician: ' . substr($technicianName, 0, 12) . (strlen($technicianName) > 12 ? '...' : ''),
+            'value' => number_format($currentStats->total_count) . ' services',
+            'description' => $description,
+            'icon' => 'heroicon-m-user-circle',
+            'color' => $currentStats->payment_rate >= 80 ? 'success' : 'info'
+        ];
     }
 
     private function getDateFilterContext($filters, $currentStats, $isUserRole): array
@@ -118,7 +136,7 @@ class POReportProductOverview extends BaseWidget
 
         return [
             'title' => $title,
-            'value' => number_format($currentStats->total_count) . ' orders',
+            'value' => number_format($currentStats->total_count) . ' services',
             'description' => $description,
             'icon' => $icon ?? 'heroicon-m-calendar-days',
             'color' => $currentStats->payment_rate >= 80 ? 'success' : 'info'
@@ -133,10 +151,10 @@ class POReportProductOverview extends BaseWidget
         $description = 'Total: Rp ' . number_format($currentStats->total_po_amount, 0, ',', '.') . ' (' . $currentStats->payment_rate . '% paid)';
 
         return [
-            'title' => $typeText . ' POs',
+            'title' => $typeText . ' Services',
             'value' => number_format($currentStats->total_count) . ' orders',
             'description' => $description,
-            'icon' => count($types) === 1 && $types[0] === 'Credit' ? 'heroicon-m-credit-card' : 'heroicon-m-shopping-cart',
+            'icon' => count($types) === 1 && $types[0] === 'Credit' ? 'heroicon-m-credit-card' : 'heroicon-m-wrench-screwdriver',
             'color' => count($types) === 1 && $types[0] === 'Credit' ? 'warning' : 'success'
         ];
     }
@@ -148,25 +166,23 @@ class POReportProductOverview extends BaseWidget
 
         if ($hasPaymentStatus && count($filters['status_paid']) === 1) {
             $paymentStatus = ucfirst($filters['status_paid'][0]);
-            $title = $paymentStatus . ' Orders';
+            $title = $paymentStatus . ' Services';
             $icon = $paymentStatus === 'Paid' ? 'heroicon-m-check-circle' : 'heroicon-m-exclamation-triangle';
             $color = $paymentStatus === 'Paid' ? 'success' : 'danger';
         } elseif ($hasStatus && count($filters['status']) === 1) {
             $status = $filters['status'][0];
-            $title = $status . ' Orders';
+            $title = $status . ' Services';
             $icon = match($status) {
                 'Requested' => 'heroicon-m-paper-airplane',
-                'Processing' => 'heroicon-m-cog',
-                'Shipped' => 'heroicon-m-truck',
-                'Received' => 'heroicon-m-check-circle',
+                'Approved' => 'heroicon-m-check-circle',
+                'In Progress' => 'heroicon-m-cog',
                 'Done' => 'heroicon-m-check-badge',
                 default => 'heroicon-m-clipboard-document-check'
             };
             $color = match($status) {
                 'Requested' => 'amber',
-                'Processing' => 'blue',
-                'Shipped' => 'purple',
-                'Received' => 'emerald',
+                'Approved' => 'blue',
+                'In Progress' => 'purple',
                 'Done' => 'success',
                 default => 'info'
             };
@@ -190,11 +206,11 @@ class POReportProductOverview extends BaseWidget
     private function getOutstandingFilterContext($currentStats, $isUserRole): array
     {
         $description = $isUserRole ?
-            number_format($currentStats->total_count) . ' orders need payment' :
-            number_format($currentStats->total_count) . ' unpaid orders need attention';
+            number_format($currentStats->total_count) . ' service orders need payment' :
+            number_format($currentStats->total_count) . ' unpaid service orders need attention';
 
         return [
-            'title' => $isUserRole ? 'Unpaid Orders' : 'Outstanding Orders',
+            'title' => $isUserRole ? 'Unpaid Services' : 'Outstanding Services',
             'value' => 'Rp ' . number_format($currentStats->outstanding_debt, 0, ',', '.'),
             'description' => $description,
             'icon' => 'heroicon-m-exclamation-triangle',
@@ -209,7 +225,7 @@ class POReportProductOverview extends BaseWidget
             'date_from' => now()->startOfMonth()->toDateString(),
             'date_until' => now()->endOfMonth()->toDateString(),
         ];
-        $thisMonthStats = POReportProduct::getFilteredOverviewStats($thisMonthFilters);
+        $thisMonthStats = POReportService::getFilteredOverviewStats($thisMonthFilters);
 
         $description = $isUserRole ?
             'Paid: Rp ' . number_format($thisMonthStats->paid_amount, 0, ',', '.') . ' (' . $thisMonthStats->payment_rate . '%)' :
@@ -231,6 +247,6 @@ class POReportProductOverview extends BaseWidget
 
     public function getHeading(): ?string
     {
-        return 'Financial Overview';
+        return 'Service Financial Overview';
     }
 }
