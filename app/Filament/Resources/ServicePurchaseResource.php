@@ -523,7 +523,7 @@ class ServicePurchaseResource extends Resource
                         Notification::make()
                             ->title('PO Status Updated')
                             ->body("Purchase order {$record->po_number} is now in progress.")
-                            ->warning()
+                            ->success()
                             ->duration(5000)
                             ->send();
                     })
