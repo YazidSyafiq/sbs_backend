@@ -21,7 +21,7 @@ class POReportProductResource extends Resource
 
     protected static ?string $navigationGroup = 'Purchase Product Management';
 
-    protected static ?int $navigationSort = 13;
+    protected static ?int $navigationSort = 17;
 
     public static function getModelLabel(): string
     {

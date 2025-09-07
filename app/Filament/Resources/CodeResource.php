@@ -18,11 +18,11 @@ class CodeResource extends Resource
 {
     protected static ?string $model = Code::class;
 
-     protected static ?string $navigationIcon = 'heroicon-c-qr-code';
+    protected static ?string $navigationIcon = 'heroicon-c-qr-code';
 
     protected static ?string $navigationGroup = 'Category Management';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 8;
 
     public static function getModelLabel(): string
     {

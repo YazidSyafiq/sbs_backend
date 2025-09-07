@@ -19,7 +19,7 @@ class ServiceAnalyticReportResource extends Resource
 
     protected static ?string $navigationGroup = 'Service Management';
 
-    protected static ?int $navigationSort = 9;
+    protected static ?int $navigationSort = 12;
 
     public static function getModelLabel(): string
     {

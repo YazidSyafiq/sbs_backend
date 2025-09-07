@@ -20,7 +20,7 @@ class POReportServiceResource extends Resource
 
     protected static ?string $navigationGroup = 'Purchase Service Management';
 
-    protected static ?int $navigationSort = 16;
+    protected static ?int $navigationSort = 20;
 
     public static function getModelLabel(): string
     {

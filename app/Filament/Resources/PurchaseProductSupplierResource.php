@@ -27,7 +27,7 @@ class PurchaseProductSupplierResource extends Resource
 
     protected static ?string $navigationGroup = 'Supplier Management';
 
-    protected static ?int $navigationSort = 11;
+    protected static ?int $navigationSort = 14;
 
     public static function getModelLabel(): string
     {

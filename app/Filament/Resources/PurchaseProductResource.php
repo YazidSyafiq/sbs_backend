@@ -27,7 +27,7 @@ class PurchaseProductResource extends Resource
 
     protected static ?string $navigationGroup = 'Purchase Product Management';
 
-    protected static ?int $navigationSort = 12;
+    protected static ?int $navigationSort = 16;
 
     public static function getModelLabel(): string
     {

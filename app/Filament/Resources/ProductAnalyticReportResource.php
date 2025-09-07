@@ -20,7 +20,7 @@ class ProductAnalyticReportResource extends Resource
 
     protected static ?string $navigationGroup = 'Product Management';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 10;
 
     public static function getModelLabel(): string
     {

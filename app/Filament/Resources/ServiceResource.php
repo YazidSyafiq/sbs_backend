@@ -22,7 +22,7 @@ class ServiceResource extends Resource
 
     protected static ?string $navigationGroup = 'Service Management';
 
-    protected static ?int $navigationSort = 8;
+    protected static ?int $navigationSort = 11;
 
     public static function getModelLabel(): string
     {

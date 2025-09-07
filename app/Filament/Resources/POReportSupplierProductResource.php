@@ -22,7 +22,7 @@ class POReportSupplierProductResource extends Resource
 
     protected static ?string $navigationGroup = 'Supplier Management';
 
-    protected static ?int $navigationSort = 12;
+    protected static ?int $navigationSort = 15;
 
     public static function getModelLabel(): string
     {
