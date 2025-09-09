@@ -9,6 +9,8 @@ use Filament\Actions;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
+use App\Exports\AccountingReportExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingFilterInfo;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingOverview;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingCashFlowAnalysis;
@@ -128,6 +130,32 @@ class ListAccountingReports extends ListRecords
                         ->body('Showing last 12 months accounting data.')
                         ->info()
                         ->send();
+                }),
+
+            Actions\Action::make('download_report')
+                ->label('Download Report')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('success')
+                ->action(function () {
+                    $filters = session('accounting_filters', []);
+
+                    // Generate filename with current date and filters
+                    $filename = 'accounting_report_' . now()->format('Y-m-d_H-i-s');
+
+                    // Add filter info to filename if filters are applied
+                    if (AccountingReport::hasActiveFilters($filters)) {
+                        $filename .= '_filtered';
+                    }
+
+                    $filename .= '.xlsx';
+
+                    Notification::make()
+                        ->title('Report Generation Started')
+                        ->body('Your accounting report is being generated. Download will start shortly.')
+                        ->info()
+                        ->send();
+
+                    return Excel::download(new AccountingReportExport($filters), $filename);
                 }),
         ];
     }
