@@ -28,11 +28,7 @@ class ListAccountingReports extends ListRecords
 
     protected static string $resource = AccountingReportResource::class;
 
-    // Hide table completely
-    protected function getTableContentGrid(): ?array
-    {
-        return null;
-    }
+    // Hapus method getTableContentGrid() untuk menampilkan table
 
     protected function getHeaderWidgets(): array
     {
@@ -54,14 +50,14 @@ class ListAccountingReports extends ListRecords
 
         // Add other widgets in logical order
         $widgets = array_merge($widgets, [
-            AccountingOverview::class,                     // 1. Main financial overview
-            AccountingCashFlowAnalysis::class,             // 2. Cash flow analysis (updated)
-            AccountingDebtAnalysis::class,                 // 3. Debt position
-            AccountingRevenueBreakdown::class,             // 4. Revenue sources
-            AccountingCostBreakdown::class,                // 5. Cost categories
-            AccountingProfitChart::class,                  // 6. Monthly profit trends
-            AccountingActualCashFlowChart::class,          // 7. Actual cash flow visualization
-            AccountingOutstandingBalanceChart::class,      // 8. Outstanding balance visualization
+            AccountingOverview::class,
+            AccountingCashFlowAnalysis::class,
+            AccountingDebtAnalysis::class,
+            AccountingRevenueBreakdown::class,
+            AccountingCostBreakdown::class,
+            AccountingProfitChart::class,
+            AccountingActualCashFlowChart::class,
+            AccountingOutstandingBalanceChart::class,
         ]);
 
         return $widgets;
@@ -80,7 +76,6 @@ class ListAccountingReports extends ListRecords
                 ->fillForm(function(): array {
                     $currentFilters = session('accounting_filters', []);
 
-                    // If no filters set, default to last 12 months
                     if (empty($currentFilters['date_from']) && empty($currentFilters['date_until'])) {
                         return [
                             'date_from' => Carbon::now()->subMonths(11)->startOfMonth()->toDateString(),
@@ -124,7 +119,6 @@ class ListAccountingReports extends ListRecords
                 ->icon('heroicon-o-arrow-path')
                 ->color('gray')
                 ->action(function (): void {
-                    // Clear all filters - will default to last 12 months
                     session(['accounting_filters' => []]);
 
                     $this->redirect(static::getUrl());
@@ -147,7 +141,6 @@ class ListAccountingReports extends ListRecords
     {
         parent::mount();
 
-        // Initialize with last 12 months if no filters exist
         if (!session()->has('accounting_filters')) {
             session(['accounting_filters' => []]);
         }

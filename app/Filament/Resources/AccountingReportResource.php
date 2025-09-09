@@ -31,10 +31,74 @@ class AccountingReportResource extends Resource
         return 'Accounting Reports';
     }
 
-    // Disable table completely
     public static function table(Table $table): Table
     {
-        return $table->paginated(false); // Empty query
+        return $table
+            ->columns([
+                Tables\Columns\TextColumn::make('period')
+                    ->label('Period')
+                    ->badge()
+                    ->color('primary')
+                    ->size('lg')
+                    ->weight('bold'),
+
+                Tables\Columns\TextColumn::make('total_revenue')
+                    ->label('Total Revenue')
+                    ->formatStateUsing(function ($state) {
+                        return 'Rp ' . number_format($state, 0, ',', '.');
+                    })
+                    ->color('success')
+                    ->weight('bold')
+                    ->size('lg')
+                    ->alignEnd(),
+
+                Tables\Columns\TextColumn::make('total_cost')
+                    ->label('Total Cost')
+                    ->formatStateUsing(function ($state) {
+                        return 'Rp ' . number_format($state, 0, ',', '.');
+                    })
+                    ->color('danger')
+                    ->weight('bold')
+                    ->size('lg')
+                    ->alignEnd(),
+
+                Tables\Columns\TextColumn::make('profit')
+                    ->label('Profit')
+                    ->formatStateUsing(function ($state) {
+                        return 'Rp ' . number_format($state, 0, ',', '.');
+                    })
+                    ->color(fn($record) => $record->profit >= 0 ? 'success' : 'danger')
+                    ->weight('bold')
+                    ->size('lg')
+                    ->alignEnd(),
+
+                Tables\Columns\TextColumn::make('profit_margin_percentage')
+                    ->label('Profit Margin')
+                    ->suffix('%')
+                    ->color(fn($record) => $record->profit_margin_percentage >= 0 ? 'success' : 'danger')
+                    ->weight('bold')
+                    ->size('lg')
+                    ->alignEnd(),
+            ])
+            ->paginated(false)
+            ->query(function () {
+                // Return virtual single record based on Income table
+                return AccountingReport::query()->take(1);
+            })
+            ->contentGrid([
+                'md' => 1,
+                'xl' => 1,
+            ])
+            ->striped(false)
+            ->defaultSort('id', 'desc');
+    }
+
+    public static function form(Form $form): Form
+    {
+        return $form
+            ->schema([
+                // Form not needed since we're not doing CRUD operations
+            ]);
     }
 
     // Disable CRUD operations
@@ -49,5 +113,10 @@ class AccountingReportResource extends Resource
         return [
             'index' => Pages\ListAccountingReports::route('/'),
         ];
+    }
+
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->take(1);
     }
 }

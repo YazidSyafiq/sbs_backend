@@ -10,6 +10,7 @@ use App\Models\PurchaseProductSupplier;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Collection;
 use Carbon\Carbon;
 
 class AccountingReport extends Model
@@ -21,6 +22,85 @@ class AccountingReport extends Model
         'date' => 'date',
         'income_amount' => 'decimal:2',
     ];
+
+    // Tambahkan appends untuk virtual attributes
+    protected $appends = [
+        'period',
+        'total_revenue',
+        'total_cost',
+        'profit',
+        'profit_margin_percentage'
+    ];
+
+    /**
+     * Get period attribute (virtual)
+     */
+    public function getPeriodAttribute()
+    {
+        // Ambil filters dari session
+        $filters = session('accounting_filters', []);
+
+        if (!empty($filters['date_from']) && !empty($filters['date_until'])) {
+            $dateFrom = Carbon::parse($filters['date_from'])->format('d M Y');
+            $dateTo = Carbon::parse($filters['date_until'])->format('d M Y');
+            return "{$dateFrom} - {$dateTo}";
+        }
+
+        return 'Last 12 Months';
+    }
+
+    /**
+     * Get total revenue attribute (virtual)
+     */
+    public function getTotalRevenueAttribute()
+    {
+        $filters = session('accounting_filters', []);
+        $overview = static::getAccountingOverview($filters);
+        return $overview->total_revenue;
+    }
+
+    /**
+     * Get total cost attribute (virtual)
+     */
+    public function getTotalCostAttribute()
+    {
+        $filters = session('accounting_filters', []);
+        $overview = static::getAccountingOverview($filters);
+        return $overview->total_cost;
+    }
+
+    /**
+     * Get profit attribute (virtual)
+     */
+    public function getProfitAttribute()
+    {
+        $filters = session('accounting_filters', []);
+        $overview = static::getAccountingOverview($filters);
+        return $overview->gross_profit;
+    }
+
+    /**
+     * Get profit margin percentage attribute (virtual)
+     */
+    public function getProfitMarginPercentageAttribute()
+    {
+        $filters = session('accounting_filters', []);
+        $overview = static::getAccountingOverview($filters);
+        return $overview->profit_margin;
+    }
+
+    /**
+     * Override newCollection to create single virtual record
+     */
+    public function newCollection(array $models = [])
+    {
+        // Buat satu virtual record untuk ditampilkan di table
+        $virtualRecord = new static();
+        $virtualRecord->id = 1;
+        $virtualRecord->exists = true;
+
+        return new Collection([$virtualRecord]);
+    }
 
     /**
      * Helper method to apply filters to any query
