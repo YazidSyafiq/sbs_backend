@@ -17,6 +17,10 @@ use App\Filament\Resources\AccountingReportResource\Widgets\AccountingCashFlowAn
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingDebtAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingRevenueBreakdown;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingCostBreakdown;
+use App\Filament\Resources\AccountingReportResource\Widgets\AccountingProductSummary;
+use App\Filament\Resources\AccountingReportResource\Widgets\AccountingServiceSummary;
+use App\Filament\Resources\AccountingReportResource\Widgets\AccountingProductSalesAnalysis;
+use App\Filament\Resources\AccountingReportResource\Widgets\AccountingServiceSalesAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingProfitChart;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingActualCashFlowChart;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingOutstandingBalanceChart;
@@ -29,8 +33,6 @@ class ListAccountingReports extends ListRecords
     use ExposesTableToWidgets;
 
     protected static string $resource = AccountingReportResource::class;
-
-    // Hapus method getTableContentGrid() untuk menampilkan table
 
     protected function getHeaderWidgets(): array
     {
@@ -50,13 +52,26 @@ class ListAccountingReports extends ListRecords
             $widgets[] = AccountingFilterInfo::class;
         }
 
-        // Add other widgets in logical order
+        // Add widgets in logical order: Overview → Breakdowns → Details → Charts
         $widgets = array_merge($widgets, [
+            // Financial Overview
             AccountingOverview::class,
             AccountingCashFlowAnalysis::class,
             AccountingDebtAnalysis::class,
+
+            // Revenue & Cost Breakdown
             AccountingRevenueBreakdown::class,
             AccountingCostBreakdown::class,
+
+            // Product & Service Summaries
+            AccountingProductSummary::class,
+            AccountingServiceSummary::class,
+
+            // Detailed Individual Performance
+            AccountingProductSalesAnalysis::class,
+            AccountingServiceSalesAnalysis::class,
+
+            // Charts
             AccountingProfitChart::class,
             AccountingActualCashFlowChart::class,
             AccountingOutstandingBalanceChart::class,
