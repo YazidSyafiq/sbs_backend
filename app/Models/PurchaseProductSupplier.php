@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use App\Mail\PurchaseOrderSupplierProductsNotification;
+use App\Jobs\SendPurchaseProductSupplierEmailJob;
 
 class PurchaseProductSupplier extends Model
 {
@@ -75,58 +75,13 @@ class PurchaseProductSupplier extends Model
     */
     private function sendStatusChangeEmail(): void
     {
-        try {
-            // Load relationship yang dibutuhkan untuk email
-            $this->load([]);
+        // Dispatch job untuk mengirim email
+        SendPurchaseProductSupplierEmailJob::dispatch($this->id, $this->status);
 
-            $recipients = [];
-
-            // Tentukan penerima email berdasarkan status PO
-            switch ($this->status) {
-                case 'Requested':
-                case 'Processing':
-                case 'Shipped':
-                case 'Received':
-                case 'Cancelled':
-                case 'Done':
-                    $recipients = User::whereHas('roles', function ($query) {
-                        $query->whereIn('name', ['Admin', 'Supervisor', 'Manager', 'Super Admin']);
-                    })->get();
-                    break;
-
-                default:
-                    // Status lain tidak perlu notifikasi email
-                    return;
-            }
-
-            // Kirim email ke setiap penerima
-            foreach ($recipients as $recipient) {
-                try {
-                    Mail::to($recipient->email)->send(
-                        new PurchaseOrderSupplierProductsNotification($this)
-                    );
-
-                    Log::info("PO status email sent", [
-                        'po_number' => $this->po_number,
-                        'status' => $this->status,
-                        'recipient' => $recipient->email
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error("Failed to send PO status email", [
-                        'po_number' => $this->po_number,
-                        'status' => $this->status,
-                        'recipient' => $recipient->email,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error("Failed to process PO status email", [
-                'po_number' => $this->po_number,
-                'status' => $this->status,
-                'error' => $e->getMessage()
-            ]);
-        }
+        Log::info("PO Supplier status email job dispatched", [
+            'po_number' => $this->po_number,
+            'status' => $this->status
+        ]);
     }
 
     public static function generatePoNumber(int $supplierId, string $orderDate): string
