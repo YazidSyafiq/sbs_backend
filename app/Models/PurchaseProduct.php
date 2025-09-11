@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use App\Mail\PurchaseOrderProductsNotification;
+use App\Jobs\SendPurchaseOrderEmailJob;
 
 class PurchaseProduct extends Model
 {
@@ -50,86 +50,13 @@ class PurchaseProduct extends Model
     */
     private function sendStatusChangeEmail(): void
     {
-        try {
-            // Load relationship yang dibutuhkan untuk email
-            $this->load(['user.branch', 'items.product']);
+        // Dispatch job untuk mengirim email
+        SendPurchaseOrderEmailJob::dispatch($this->id, $this->status);
 
-            $recipients = [];
-
-            // Tentukan penerima email berdasarkan status PO
-            switch ($this->status) {
-                case 'Requested':
-                    // Kirim ke Admin, Supervisor, Manager, Super Admin
-                    $recipients = User::whereHas('roles', function ($query) {
-                        $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
-                    })->get();
-                    break;
-
-                case 'Processing':
-                case 'Shipped':
-                case 'Received':
-                case 'Cancelled':
-                    // Kirim ke User, Admin, dan Supervisor
-                    $recipients = User::whereHas('roles', function ($query) {
-                        $query->whereIn('name', ['User', 'Admin', 'Supervisor']);
-                    })->get();
-                    break;
-                case 'Done':
-                    $recipients = User::whereHas('roles', function ($query) {
-                        $query->whereIn('name', ['User', 'Admin', 'Supervisor', 'Manager', 'Super Admin']);
-                    })->get();
-                    break;
-
-                default:
-                    // Status lain tidak perlu notifikasi email
-                    return;
-            }
-
-            // Filter recipients berdasarkan role dan branch
-            if ($this->user && $this->user->branch_id) {
-                $recipients = $recipients->filter(function ($user) {
-                    // Admin, Supervisor, Manager, dan Super Admin bisa melihat semua branch
-                    if ($user->hasAnyRole(['Admin', 'Supervisor', 'Manager', 'Super Admin'])) {
-                        return true;
-                    }
-
-                    // User hanya yang melakukan request PO tersebut
-                    if ($user->hasRole('User')) {
-                        return $user->id === $this->user_id;
-                    }
-
-                    return false;
-                });
-            }
-
-            // Kirim email ke setiap penerima
-            foreach ($recipients as $recipient) {
-                try {
-                    Mail::to($recipient->email)->send(
-                        new PurchaseOrderProductsNotification($this)
-                    );
-
-                    Log::info("PO status email sent", [
-                        'po_number' => $this->po_number,
-                        'status' => $this->status,
-                        'recipient' => $recipient->email
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error("Failed to send PO status email", [
-                        'po_number' => $this->po_number,
-                        'status' => $this->status,
-                        'recipient' => $recipient->email,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error("Failed to process PO status email", [
-                'po_number' => $this->po_number,
-                'status' => $this->status,
-                'error' => $e->getMessage()
-            ]);
-        }
+        Log::info("PO status email job dispatched", [
+            'po_number' => $this->po_number,
+            'status' => $this->status
+        ]);
     }
 
     public static function generatePoNumber(int $userId, string $orderDate): string
