@@ -15,19 +15,9 @@ class Product extends Model
     protected $fillable = [
         'name',
         'category_id',
-        'stock',
         'price',
-        'supplier_price',
         'code_id',
         'code',
-        'entry_date',
-        'expiry_date'
-    ];
-
-    // PENTING: Tambahkan cast untuk dates
-    protected $casts = [
-        'entry_date' => 'date',
-        'expiry_date' => 'date',
     ];
 
     public function category(): BelongsTo

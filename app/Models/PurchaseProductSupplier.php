@@ -132,7 +132,7 @@ class PurchaseProductSupplier extends Model
     // Calculate total
     public function calculateTotal(): void
     {
-        $this->total_amount = $this->quantity * $this->product->supplier_price;
+        $this->total_amount = $this->quantity * $this->unit_price;
         $this->save();
     }
 
@@ -192,12 +192,6 @@ class PurchaseProductSupplier extends Model
         if(!$this->received_date) {
             $this->received_date = now();
         }
-
-        $product = Product::where('id', $this->product_id)->first();
-        $product->update([
-            'stock' => $product->stock + $this->quantity,
-            'entry_date' => now(),
-        ]);
 
         $this->status = 'Received';
         $this->save();

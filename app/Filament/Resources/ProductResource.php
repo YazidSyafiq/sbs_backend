@@ -82,40 +82,16 @@ class ProductResource extends Resource
                             ->live() // Tambahkan live untuk reactive
                             ->label('Code')
                             ->required(),
-                        Forms\Components\TextInput::make('stock')
-                            ->required()
-                            ->label('Ready Stock')
-                            ->columnSpan(function (Get $get, string $context) {
-                                return $get('show_code') === null && $context === 'create' ? 'full' : 1;
-                            })
-                            ->placeholder('Enter Stock')
-                            ->hint('Example: 10')
-                            ->numeric(),
-                        Forms\Components\TextInput::make('supplier_price')
-                            ->required()
-                            ->numeric()
-                            ->label('Cost Price')
-                            ->placeholder('Enter Cost Price')
-                            ->hint('Example: 10000')
-                            ->prefix('Rp'),
                         Forms\Components\TextInput::make('price')
                             ->required()
                             ->numeric()
+                            ->columnSpan(function (Get $get, string $context) {
+                                return $get('show_code') === null && $context === 'create' ? 'full' : 1;
+                            })
                             ->label('Selling Price')
                             ->placeholder('Enter Selling Price')
                             ->hint('Example: 10000')
                             ->prefix('Rp'),
-                    ]),
-                    Forms\Components\Section::make('Product Date Form')
-                    ->columns(2)
-                    ->schema([
-                        Forms\Components\DatePicker::make('entry_date')
-                            ->label('Entry Date')
-                            ->placeholder('Select Entry Date')
-                            ->required(),
-                        Forms\Components\DatePicker::make('expiry_date')
-                            ->label('Expiry Date')
-                            ->placeholder('Select Expiry Date'),
                     ]),
             ]);
     }
@@ -133,73 +109,12 @@ class ProductResource extends Resource
                 Tables\Columns\TextColumn::make('category.name')
                     ->label('Category')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('expiry_date')
-                    ->label('Expiry Date')
-                    ->date()
-                    ->formatStateUsing(function ($state) {
-                        if (!$state) {
-                            return 'No Expiry Date';
-                        }
-
-                        return Carbon::parse($state)->format('d M Y');
-                    })
-                    ->color(function ($record) {
-                        if (!$record->expiry_date) return 'gray';
-
-                        $daysUntilExpiry = now()->diffInDays($record->expiry_date, false);
-
-                        if ($daysUntilExpiry < 0) {
-                            return 'danger';
-                        } elseif ($daysUntilExpiry <= 30) {
-                            return 'warning';
-                        }
-
-                        return 'success';
-                    }),
-                Tables\Columns\TextColumn::make('expiry_status')
-                    ->label('Expiry Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Expired' => 'danger',
-                        'Expiring Soon' => 'warning',
-                        'Fresh' => 'success',
-                        'No Expiry Date' => 'gray',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'Expired' => 'heroicon-m-x-circle',
-                        'Expiring Soon' => 'heroicon-m-exclamation-triangle',
-                        'Fresh' => 'heroicon-m-check-circle',
-                        'No Expiry Date' => 'heroicon-m-minus-circle',
-                    }),
-                Tables\Columns\TextColumn::make('supplier_price')
-                    ->label('Cost Price')
-                    ->numeric()
-                    ->formatStateUsing(function ($state) {
-                        if (is_null($state)) return '-';
-                        return 'Rp ' . number_format($state, 0, ',', '.');
-                    }),
                 Tables\Columns\TextColumn::make('price')
                     ->label('Selling Price')
                     ->numeric()
                     ->formatStateUsing(function ($state) {
                         if (is_null($state)) return '-';
                         return 'Rp ' . number_format($state, 0, ',', '.');
-                    }),
-                Tables\Columns\TextColumn::make('display_stock')
-                    ->label('Ready Stock')
-                    ->numeric(),
-                Tables\Columns\TextColumn::make('status')
-                    ->label('Stock Status')
-                    ->badge()
-                    ->color(fn (string $state): string => match ($state) {
-                        'Out of Stock' => 'danger',
-                        'Low Stock' => 'warning',
-                        'In Stock' => 'success',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'Out of Stock' => 'heroicon-m-x-circle',
-                        'Low Stock' => 'heroicon-m-exclamation-triangle',
-                        'In Stock' => 'heroicon-m-check-circle',
                     }),
             ])
             ->filters([

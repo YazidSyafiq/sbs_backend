@@ -142,31 +142,19 @@ class PurchaseProductSupplierResource extends Resource
                             ->preload()
                             ->required()
                             ->live()
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested')
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                if ($state) {
-                                    $product = Product::find($state);
-                                    $set('unit_price', $product->supplier_price ?? 0);
-                                    $set('quantity', $product->need_purchase ?? 0);
-                                }
-                            }),
+                            ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
                         Forms\Components\TextInput::make('quantity')
                             ->numeric()
                             ->minValue(1)
                             ->required()
                             ->live()
                             ->dehydrated()
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested')
-                            ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                $unitPrice = $get('unit_price') ?? 0;
-                                $set('total_price', $state * $unitPrice);
-                            }),
+                            ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
                         Forms\Components\TextInput::make('unit_price')
                             ->label('Unit Price')
                             ->numeric()
                             ->prefix('Rp')
                             ->required()
-                            ->disabled()
                             ->live()
                             ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                 $quantity = $get('quantity') ?? 0;
