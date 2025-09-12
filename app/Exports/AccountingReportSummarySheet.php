@@ -62,15 +62,6 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['Total Cost', 'Rp ' . number_format($costBreakdown->total_cost, 0, ',', '.'), '100%'];
         $data[] = [''];
 
-        // Cash Flow Overview
-        $cashFlow = AccountingReport::getCashFlowAnalysis($this->filters);
-        $data[] = ['CASH FLOW OVERVIEW'];
-        $data[] = [''];
-        $data[] = ['Actual Cash In', 'Rp ' . number_format($cashFlow->actual_cash_in, 0, ',', '.')];
-        $data[] = ['Actual Cash Out', 'Rp ' . number_format($cashFlow->actual_cash_out, 0, ',', '.')];
-        $data[] = ['Net Cash Flow', 'Rp ' . number_format($cashFlow->net_actual_cash_flow, 0, ',', '.')];
-        $data[] = [''];
-
         // Outstanding Balances
         $debtAnalysis = AccountingReport::getDebtAnalysis($this->filters);
         $data[] = ['OUTSTANDING BALANCES'];
@@ -84,16 +75,12 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['KEY PERFORMANCE INDICATORS'];
         $data[] = [''];
         $data[] = ['Profit Margin', $overview->profit_margin . '%'];
-        $data[] = ['Cash Flow Ratio', $cashFlow->actual_cash_out > 0 ? round(($cashFlow->actual_cash_in / $cashFlow->actual_cash_out) * 100, 1) . '%' : 'N/A'];
         $data[] = ['Revenue per Source (Avg)', 'Rp ' . number_format($overview->total_revenue / 3, 0, ',', '.')];
         $data[] = ['Cost per Category (Avg)', 'Rp ' . number_format($overview->total_cost / 4, 0, ',', '.')];
 
         // Net Position Analysis
         $netPositionStatus = $debtAnalysis->net_debt_position > 0 ? 'We owe more than we are owed' : 'We are owed more than we owe';
         $data[] = ['Net Debt Position Status', $netPositionStatus];
-
-        $cashFlowStatus = $cashFlow->net_actual_cash_flow > 0 ? 'Positive Cash Flow' : 'Negative Cash Flow';
-        $data[] = ['Cash Flow Status', $cashFlowStatus];
 
         return $data;
     }

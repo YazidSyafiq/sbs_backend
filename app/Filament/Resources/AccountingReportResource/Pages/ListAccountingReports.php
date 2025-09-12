@@ -13,7 +13,6 @@ use App\Exports\AccountingReportExport;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingFilterInfo;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingOverview;
-use App\Filament\Resources\AccountingReportResource\Widgets\AccountingCashFlowAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingDebtAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingRevenueBreakdown;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingCostBreakdown;
@@ -22,7 +21,6 @@ use App\Filament\Resources\AccountingReportResource\Widgets\AccountingServiceSum
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingProductSalesAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingServiceSalesAnalysis;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingProfitChart;
-use App\Filament\Resources\AccountingReportResource\Widgets\AccountingActualCashFlowChart;
 use App\Filament\Resources\AccountingReportResource\Widgets\AccountingOutstandingBalanceChart;
 use Filament\Notifications\Notification;
 use App\Models\AccountingReport;
@@ -56,7 +54,6 @@ class ListAccountingReports extends ListRecords
         $widgets = array_merge($widgets, [
             // Financial Overview
             AccountingOverview::class,
-            AccountingCashFlowAnalysis::class,
             AccountingDebtAnalysis::class,
 
             // Revenue & Cost Breakdown
@@ -73,7 +70,6 @@ class ListAccountingReports extends ListRecords
 
             // Charts
             AccountingProfitChart::class,
-            AccountingActualCashFlowChart::class,
             AccountingOutstandingBalanceChart::class,
         ]);
 

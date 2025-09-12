@@ -74,4 +74,31 @@ class Product extends Model
     {
         return max(0, $this->stock);
     }
+
+    // Method untuk generate code
+    public static function generateCode($codeTemplateId): string
+    {
+        $codeTemplate = Code::find($codeTemplateId);
+        if (!$codeTemplate) {
+            return '';
+        }
+
+        // Cari nomor urut terakhir untuk code template ini (termasuk soft deleted)
+        $lastProduct = static::withTrashed() // Include soft deleted records
+            ->where('code_id', $codeTemplateId)
+            ->where('code', 'like', $codeTemplate->code . '-%')
+            ->orderByRaw('CAST(SUBSTRING(code, LOCATE("-", code) + 1) AS UNSIGNED) DESC')
+            ->first();
+
+        if ($lastProduct) {
+            // Extract nomor dari code terakhir (misal: SYR-005 -> 5)
+            $lastNumber = (int) substr($lastProduct->code, strlen($codeTemplate->code) + 1);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            $nextNumber = 1;
+        }
+
+        // Format dengan leading zeros (001, 002, dst)
+        return $codeTemplate->code . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
 }
