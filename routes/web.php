@@ -15,3 +15,8 @@ Route::get('/purchase-product/{purchaseProduct}/faktur', [PurchaseProductControl
 Route::get('/purchase-service/{purchaseService}/invoice', [PurchaseServiceController::class, 'invoice'])->name('purchase-service.invoice');
 Route::get('/purchase-service/{purchaseService}/faktur', [PurchaseServiceController::class, 'faktur'])->name('purchase-service.faktur');
 Route::get('/purchase-supplier/{purchaseProduct}/faktur-supplier', [PurchaseProductSupplierController::class, 'faktur'])->name('purchase-product-supplier.faktur');
+
+// Tambahkan di routes/web.php
+Route::get('/purchase-service/report', [PurchaseServiceController::class, 'report'])
+    ->name('purchase-service.report')
+    ->middleware('auth');
