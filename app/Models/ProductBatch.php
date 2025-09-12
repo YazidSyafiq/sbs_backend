@@ -40,6 +40,42 @@ class ProductBatch extends Model
         return $this->belongsTo(PurchaseProductSupplier::class);
     }
 
+    // Accessor untuk mendapatkan supplier melalui PO
+    public function getSupplierAttribute()
+    {
+        return $this->purchaseProductSupplier?->supplier;
+    }
+
+    // Accessor untuk status expiry
+    public function getExpiryStatusAttribute(): string
+    {
+        if (!$this->expiry_date) {
+            return 'No Expiry Date';
+        }
+
+        $daysUntilExpiry = Carbon::now()->diffInDays($this->expiry_date, false);
+
+        if ($daysUntilExpiry < 0) {
+            return 'Expired';
+        } elseif ($daysUntilExpiry <= 30) {
+            return 'Expiring Soon';
+        } else {
+            return 'Fresh';
+        }
+    }
+
+    // Accessor untuk stock status
+    public function getStockStatusAttribute(): string
+    {
+        if ($this->quantity <= 0) {
+            return 'Out of Stock';
+        } elseif ($this->quantity < 10) {
+            return 'Low Stock';
+        } else {
+            return 'In Stock';
+        }
+    }
+
     public static function generateBatchNumber(int $productId, int $supplierId, string $receiveDate): string
     {
         // Ambil product

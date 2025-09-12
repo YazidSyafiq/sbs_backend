@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 class Product extends Model
@@ -18,6 +19,7 @@ class Product extends Model
         'price',
         'code_id',
         'code',
+        'unit',
     ];
 
     public function category(): BelongsTo
@@ -30,39 +32,87 @@ class Product extends Model
         return $this->belongsTo(Code::class, 'code_id');
     }
 
+    public function productBatches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class);
+    }
+
+    public function availableProductBatches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class)->where('quantity', '>', 0);
+    }
+
+    // Get total stock dari semua batch
+    public function getTotalStockAttribute(): int
+    {
+        return $this->productBatches()->sum('quantity');
+    }
+
+    // Get available stock (stock > 0)
+    public function getAvailableStockAttribute(): int
+    {
+        return $this->productBatches()->where('quantity', '>', 0)->sum('quantity');
+    }
+
+    // Get average cost price dari semua batch yang tersedia
+    public function getAverageCostPriceAttribute(): float
+    {
+        $batches = $this->productBatches()->where('quantity', '>', 0)->get();
+
+        if ($batches->isEmpty()) {
+            return 0;
+        }
+
+        $totalValue = 0;
+        $totalQuantity = 0;
+
+        foreach ($batches as $batch) {
+            $totalValue += $batch->quantity * $batch->cost_price;
+            $totalQuantity += $batch->quantity;
+        }
+
+        return $totalQuantity > 0 ? $totalValue / $totalQuantity : 0;
+    }
+
+    // Get lowest cost price
+    public function getLowestCostPriceAttribute(): float
+    {
+        return $this->productBatches()
+            ->where('quantity', '>', 0)
+            ->min('cost_price') ?? 0;
+    }
+
+    // Get highest cost price
+    public function getHighestCostPriceAttribute(): float
+    {
+        return $this->productBatches()
+            ->where('quantity', '>', 0)
+            ->max('cost_price') ?? 0;
+    }
+
+    // Get potential profit margin
+    public function getPotentialProfitMarginAttribute(): float
+    {
+        $averageCost = $this->average_cost_price;
+
+        if ($averageCost <= 0) {
+            return 0;
+        }
+
+        return (($this->price - $averageCost) / $averageCost) * 100;
+    }
+
     public function getStatusAttribute(): string
     {
-        $displayStock = $this->display_stock; // Gunakan display stock (min 0)
+        $availableStock = $this->available_stock;
 
-        if ($displayStock <= 0) {
+        if ($availableStock <= 0) {
             return 'Out of Stock';
-        } elseif ($displayStock < 10) {
+        } elseif ($availableStock < 10) {
             return 'Low Stock';
         } else {
             return 'In Stock';
         }
-    }
-
-    public function getExpiryStatusAttribute(): string
-    {
-        if (!$this->expiry_date) {
-            return 'No Expiry Date';
-        }
-
-        $daysUntilExpiry = Carbon::now()->diffInDays($this->expiry_date, false);
-
-        if ($daysUntilExpiry < 0) {
-            return 'Expired';
-        } elseif ($daysUntilExpiry <= 30) {
-            return 'Expiring Soon';
-        } else {
-            return 'Fresh';
-        }
-    }
-
-    public function getDisplayStockAttribute(): int
-    {
-        return max(0, $this->stock);
     }
 
     // Method untuk generate code
@@ -90,5 +140,33 @@ class Product extends Model
 
         // Format dengan leading zeros (001, 002, dst)
         return $codeTemplate->code . '-' . str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Update batch numbers ketika product code berubah
+     */
+    public function updateProductBatchNumbers(): void
+    {
+        $batches = $this->productBatches()->get();
+
+        foreach ($batches as $batch) {
+            $oldBatchNumber = $batch->batch_number;
+
+            // Parse batch number lama: PRODUCTCODE/SUPPLIERCODE/YYYYMM/NNNN
+            $parts = explode('/', $oldBatchNumber);
+
+            if (count($parts) === 4) {
+                // Ganti bagian product code dengan code yang baru
+                $parts[0] = $this->code;
+
+                // Rebuild batch number
+                $newBatchNumber = implode('/', $parts);
+
+                // Update batch number
+                $batch->update([
+                    'batch_number' => $newBatchNumber
+                ]);
+            }
+        }
     }
 }

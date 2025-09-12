@@ -126,7 +126,7 @@ class PurchaseProductSupplierResource extends Resource
                             ->required(),
                     ]),
                 Forms\Components\Section::make('Purchase Items')
-                    ->columns(3)
+                    ->columns(4)
                     ->schema([
                         Forms\Components\Select::make('product_id')
                             ->label('Product')
@@ -139,6 +139,13 @@ class PurchaseProductSupplierResource extends Resource
                                     ->toArray();
                             })
                             ->searchable()
+                            ->placeholder('Select Product')
+                            ->afterStateUpdated(function ($state, Set $set) {
+                                if ($state) {
+                                    $product = Product::find($state);
+                                    $set('unit', $product->unit ?? 'pcs');
+                                }
+                            })
                             ->preload()
                             ->required()
                             ->live()
@@ -149,12 +156,24 @@ class PurchaseProductSupplierResource extends Resource
                             ->required()
                             ->live()
                             ->dehydrated()
+                            ->placeholder('Enter Quantity')
+                            ->hint('Example: 10')
                             ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
+                        Forms\Components\TextInput::make('unit')
+                            ->label('Unit')
+                            ->required()
+                            ->live()
+                            ->dehydrated()
+                            ->placeholder('Enter Unit')
+                            ->hint('Example: pcs, kg, etc')
+                            ->disabled(),
                         Forms\Components\TextInput::make('unit_price')
                             ->label('Unit Price')
                             ->numeric()
                             ->prefix('Rp')
                             ->required()
+                            ->placeholder('Enter Unit Price')
+                            ->hint('Example: 10000')
                             ->live()
                             ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                 $quantity = $get('quantity') ?? 0;
@@ -274,7 +293,7 @@ class PurchaseProductSupplierResource extends Resource
                             : '-'
                     )
                     ->searchable(['product.name', 'product.code'])
-                    ->description(fn ($record): string => 'Qty: ' . number_format($record->quantity), position: 'below'),
+                    ->description(fn ($record): string => 'Qty: ' . number_format($record->quantity) . ' ' . ($record->product->unit ?? 'pcs'), position: 'below'),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total Amount')
                     ->formatStateUsing(function ($state) {

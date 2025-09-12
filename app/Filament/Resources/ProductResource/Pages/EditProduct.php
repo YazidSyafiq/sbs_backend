@@ -23,10 +23,20 @@ class EditProduct extends EditRecord
 
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        $oldCode = $this->record->code;
+
         if (isset($data['code_id']) && $data['code_id'] != $this->record->code_id) {
             $data['code'] = Product::generateCode($data['code_id']);
         }
 
         return $data;
+    }
+
+    protected function afterSave(): void
+    {
+        // Check apakah code berubah dan update batch numbers jika perlu
+        if ($this->record->wasChanged('code')) {
+            $this->record->updateProductBatchNumbers();
+        }
     }
 }

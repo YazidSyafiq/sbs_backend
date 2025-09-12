@@ -196,7 +196,34 @@ class PurchaseProductSupplier extends Model
         $this->status = 'Received';
         $this->save();
 
+        // Buat ProductBatch ketika PO di-receive
+        $this->createProductBatch();
+
         $this->sendStatusChangeEmail();
+    }
+
+    /**
+     * Membuat ProductBatch ketika PO di-receive
+     */
+    private function createProductBatch(): void
+    {
+        // Generate batch number
+        $batchNumber = ProductBatch::generateBatchNumber(
+            $this->product_id,
+            $this->supplier_id,
+            $this->received_date->format('Y-m-d')
+        );
+
+        // Buat ProductBatch
+        ProductBatch::create([
+            'product_id' => $this->product_id,
+            'batch_number' => $batchNumber,
+            'quantity' => $this->quantity,
+            'cost_price' => $this->unit_price,
+            'entry_date' => $this->received_date,
+            'expiry_date' => null, // Untuk saat ini nullable, bisa ditambahkan field di form nanti
+            'purchase_product_supplier_id' => $this->id,
+        ]);
     }
 
     public function done(): void
