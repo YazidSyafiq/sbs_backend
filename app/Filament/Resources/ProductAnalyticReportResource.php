@@ -38,48 +38,21 @@ class ProductAnalyticReportResource extends Resource
             ->modifyQueryUsing(function (Builder $query) {
                 $filters = session('product_analytics_filters', []);
 
-                // Join dengan category untuk data lengkap
-                $query->select([
-                    'products.*',
-                    'product_categories.name as category_name',
-                ])
-                ->selectRaw('(products.stock * products.price) as stock_value') // Add computed stock_value column
-                ->leftJoin('product_categories', 'products.category_id', '=', 'product_categories.id');
-
-                // Add computed columns for purchase activity
-                $query->selectRaw('
-                    (SELECT COALESCE(SUM(ppi.quantity), 0)
-                     FROM purchase_product_items ppi
-                     JOIN purchase_products pp ON ppi.purchase_product_id = pp.id
-                     WHERE ppi.product_id = products.id
-                     AND pp.status IN ("Processing", "Shipped", "Received", "Done")
-                    ) as total_purchased
-                ');
-
-                $query->selectRaw('
-                    (SELECT COALESCE(SUM(ppi.quantity), 0)
-                     FROM purchase_product_items ppi
-                     JOIN purchase_products pp ON ppi.purchase_product_id = pp.id
-                     WHERE ppi.product_id = products.id
-                     AND pp.status = "Requested"
-                    ) as pending_requests
-                ');
+                // Join dengan category dan load productBatches
+                $query->with(['category', 'productBatches']);
 
                 // Apply session filters
                 $query = ProductAnalyticReport::applyFiltersToQuery($query, $filters);
             })
-            ->defaultSort('total_purchased', 'desc')
+            ->defaultSort('name', 'asc')
             ->columns([
-                Tables\Columns\TextColumn::make('category_name')
+                Tables\Columns\TextColumn::make('category.name')
                     ->label('Category')
-                    ->searchable()
-                    ->sortable()
-                    ->toggleable(),
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('code')
                     ->label('Product Code')
-                    ->searchable()
-                    ->sortable(),
+                    ->searchable(),
 
                 Tables\Columns\TextColumn::make('name')
                     ->label('Product Name')
@@ -87,29 +60,21 @@ class ProductAnalyticReportResource extends Resource
                     ->limit(30)
                     ->tooltip(fn ($record) => $record->name),
 
-                Tables\Columns\TextColumn::make('stock')
+                Tables\Columns\TextColumn::make('current_stock')
                     ->label('Current Stock')
                     ->numeric()
-                    ->sortable()
-                    ->color(fn ($state) => match(true) {
-                        $state <= 0 => 'danger',
-                        $state < 10 => 'warning',
+                    ->getStateUsing(fn ($record) => $record->total_stock)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color(fn ($record) => match(true) {
+                        $record->total_stock <= 0 => 'danger',
+                        $record->total_stock < 10 => 'warning',
                         default => 'success'
                     }),
 
                 Tables\Columns\TextColumn::make('stock_status')
                     ->label('Stock Status')
                     ->badge()
-                    ->getStateUsing(function ($record) {
-                        $displayStock = max(0, $record->stock);
-                        if ($displayStock <= 0) {
-                            return 'Out of Stock';
-                        } elseif ($displayStock < 10) {
-                            return 'Low Stock';
-                        } else {
-                            return 'In Stock';
-                        }
-                    })
+                    ->getStateUsing(fn ($record) => $record->stock_status)
                     ->color(fn (string $state): string => match ($state) {
                         'Out of Stock' => 'danger',
                         'Low Stock' => 'warning',
@@ -122,93 +87,74 @@ class ProductAnalyticReportResource extends Resource
                         'In Stock' => 'heroicon-m-check-circle',
                     }),
 
-                Tables\Columns\TextColumn::make('total_purchased')
-                    ->label('Total Purchased')
-                    ->numeric()
-                    ->sortable()
-                    ->color(fn ($state) => $state > 0 ? 'success' : 'gray'),
-
-                                 Tables\Columns\TextColumn::make('need_purchase')
-                    ->label('Need Purchase')
-                    ->numeric()
-                    ->color(fn ($state) => $state > 0 ? 'danger' : null),
+                Tables\Columns\TextColumn::make('average_cost_price')
+                    ->label('Avg Cost Price')
+                    ->getStateUsing(fn ($record) => $record->average_cost_price)
+                    ->formatStateUsing(fn ($state) => $state > 0 ? 'Rp ' . number_format($state, 0, ',', '.') : '-'),
 
                 Tables\Columns\TextColumn::make('price')
                     ->label('Selling Price')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state, 0, ',', '.'))
-                    ->sortable(),
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state, 0, ',', '.')),
 
                 Tables\Columns\TextColumn::make('stock_value')
                     ->label('Stock Value')
-                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state, 0, ',', '.'))
-                    ->sortable() // Now this will work because we added it as a computed column in the query
-                    ->summarize([
-                        Tables\Columns\Summarizers\Sum::make()
-                            ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state, 0, ',', '.')),
-                    ]),
+                    ->getStateUsing(fn ($record) => $record->stock_value)
+                    ->formatStateUsing(fn ($state) => 'Rp ' . number_format($state, 0, ',', '.')),
 
-                Tables\Columns\TextColumn::make('expiry_status')
-                    ->label('Expiry Status')
+                Tables\Columns\TextColumn::make('need_purchase')
+                    ->label('Need Purchase')
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->need_purchase)
+                    ->color(fn ($record) => $record->need_purchase > 0 ? 'danger' : 'success')
+                    ->formatStateUsing(fn ($state, $record) => $state > 0 ? number_format($state) . ' ' . ($record->unit ?? 'pcs') : '-'),
+
+                Tables\Columns\TextColumn::make('batches_count')
+                    ->label('Batches')
                     ->badge()
-                    ->getStateUsing(function ($record) {
-                        if (!$record->expiry_date) {
-                            return 'No Expiry Date';
-                        }
+                    ->getStateUsing(fn ($record) => $record->productBatches->count() . ' batches')
+                    ->color('info'),
 
-                        $daysUntilExpiry = now()->diffInDays($record->expiry_date, false);
+                Tables\Columns\TextColumn::make('total_purchased')
+                    ->label('Total Purchased')
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->total_purchased)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color(fn ($record) => $record->total_purchased > 0 ? 'success' : 'gray'),
 
-                        if ($daysUntilExpiry < 0) {
-                            return 'Expired';
-                        } elseif ($daysUntilExpiry <= 30) {
-                            return 'Expiring Soon';
-                        } else {
-                            return 'Fresh';
-                        }
-                    })
-                    ->color(fn (string $state): string => match ($state) {
-                        'Expired' => 'danger',
-                        'Expiring Soon' => 'warning',
-                        'Fresh' => 'success',
-                        'No Expiry Date' => 'gray',
-                    })
-                    ->icon(fn (string $state): string => match ($state) {
-                        'Expired' => 'heroicon-m-x-circle',
-                        'Expiring Soon' => 'heroicon-m-exclamation-triangle',
-                        'Fresh' => 'heroicon-m-check-circle',
-                        'No Expiry Date' => 'heroicon-m-minus-circle',
-                    }),
+                Tables\Columns\TextColumn::make('requested')
+                    ->label('Requested')
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->requested)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color('amber'),
 
-                Tables\Columns\TextColumn::make('entry_date')
-                    ->label('Entry Date')
-                    ->date('d M Y')
-                    ->sortable()
-                    ->toggleable(),
-
-                Tables\Columns\TextColumn::make('on_request')
-                    ->label('Request')
-                    ->color('amber')
-                    ->numeric(),
-
-                Tables\Columns\TextColumn::make('on_processing')
+                Tables\Columns\TextColumn::make('processing')
                     ->label('Processing')
-                    ->color('blue')
-                    ->numeric(),
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->processing)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color('blue'),
 
-                Tables\Columns\TextColumn::make('on_shipped')
+                Tables\Columns\TextColumn::make('shipped')
                     ->label('Shipped')
-                    ->color('purple')
-                    ->numeric(),
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->shipped)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color('purple'),
 
-                Tables\Columns\TextColumn::make('on_received')
+                Tables\Columns\TextColumn::make('received')
                     ->label('Received')
-                    ->color('emerald')
-                    ->numeric(),
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->received)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color('emerald'),
 
-                Tables\Columns\TextColumn::make('on_done')
+                Tables\Columns\TextColumn::make('done')
                     ->label('Done')
-                    ->color('success')
-                    ->numeric(),
-
+                    ->numeric()
+                    ->getStateUsing(fn ($record) => $record->done)
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs'))
+                    ->color('success'),
             ])
             ->actions([
                 Tables\Actions\Action::make('view_original')

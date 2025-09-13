@@ -13,29 +13,18 @@ class ProductAnalyticsByCategory extends BaseWidget
         $filters = session('product_analytics_filters', []);
         $stats = [];
 
-        // Use ProductAnalyticReport model method
         $categoryStats = ProductAnalyticReport::getFilteredSummaryByCategory($filters);
 
-        // Limit to first 10 categories to avoid overcrowding
-        $categoryStats = $categoryStats->take(10);
+        // Limit to first 6 categories
+        $categoryStats = $categoryStats->take(6);
 
         foreach ($categoryStats as $category) {
             $categoryName = $category->category_name ?: 'No Category';
-
-            // Truncate category name if too long
             $displayName = strlen($categoryName) > 15 ? substr($categoryName, 0, 15) . '...' : $categoryName;
 
-            // Widget untuk total products and stock
-            $stats[] = Stat::make($displayName . ' - Products', number_format($category->product_count) . ' items')
-                ->description('Stock: ' . number_format($category->total_stock) . ' units')
+            $stats[] = Stat::make($displayName, number_format($category->product_count) . ' products')
+                ->description('Stock: ' . number_format($category->total_stock) . ' units | Value: Rp ' . number_format($category->total_value, 0, ',', '.'))
                 ->descriptionIcon('heroicon-m-cube')
-                ->color('info');
-
-            // Widget untuk stock health
-            $stats[] = Stat::make($displayName . ' - Health', $category->stock_health_rate . '% healthy')
-                ->description('Out: ' . $category->out_of_stock_count . ' | Low: ' . $category->low_stock_count)
-                ->descriptionIcon($category->stock_health_rate >= 80 ? 'heroicon-m-check-circle' :
-                                ($category->stock_health_rate >= 60 ? 'heroicon-m-exclamation-triangle' : 'heroicon-m-x-circle'))
                 ->color($category->stock_health_rate >= 80 ? 'success' :
                        ($category->stock_health_rate >= 60 ? 'warning' : 'danger'));
         }
@@ -52,7 +41,7 @@ class ProductAnalyticsByCategory extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 2;
+        return 3;
     }
 
     public function getHeading(): ?string
@@ -61,11 +50,11 @@ class ProductAnalyticsByCategory extends BaseWidget
         $categoryStats = ProductAnalyticReport::getFilteredSummaryByCategory($filters);
 
         $totalCategories = $categoryStats->count();
-        $showing = min($totalCategories, 10);
+        $showing = min($totalCategories, 6);
 
-        $title = 'Product Summary by Category';
-        if ($totalCategories > 10) {
-            $title .= " (Showing top {$showing} of {$totalCategories})";
+        $title = 'Summary by Category';
+        if ($totalCategories > 6) {
+            $title .= " (Top {$showing} of {$totalCategories})";
         }
 
         return $title;

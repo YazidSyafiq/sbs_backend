@@ -11,18 +11,18 @@ class ProductAnalyticsNeedAttention extends BaseWidget
     protected function getStats(): array
     {
         $filters = session('product_analytics_filters', []);
-        $products = ProductAnalyticReport::getDetailedProductsNeedAttention($filters, 6);
+        $attentionItems = ProductAnalyticReport::getProductsNeedingAttention($filters, 6);
 
         $stats = [];
 
-        foreach ($products as $product) {
-            $stats[] = Stat::make($product->display_name, $product->status_text)
-                ->description($product->detail_message)
-                ->descriptionIcon($this->getAttentionIcon($product->attention_type))
-                ->color($this->getAttentionColor($product->attention_type));
+        foreach ($attentionItems as $item) {
+            $stats[] = Stat::make($item->display_name, $item->status_text)
+                ->description($item->detail_message)
+                ->descriptionIcon($this->getAttentionIcon($item->attention_type))
+                ->color($this->getAttentionColor($item->attention_type));
         }
 
-        if ($products->isEmpty()) {
+        if ($attentionItems->isEmpty()) {
             $stats[] = Stat::make('All Good!', 'No products need attention')
                 ->description('All products are in good condition')
                 ->descriptionIcon('heroicon-m-check-circle')
@@ -36,10 +36,11 @@ class ProductAnalyticsNeedAttention extends BaseWidget
     {
         return match($attentionType) {
             'expired' => 'heroicon-m-x-circle',
-            'out_of_stock' => 'heroicon-m-x-circle',
             'expiring_soon' => 'heroicon-m-clock',
+            'out_of_stock' => 'heroicon-m-x-circle',
             'low_stock' => 'heroicon-m-exclamation-triangle',
-            default => 'heroicon-m-shopping-cart'
+            'need_purchase' => 'heroicon-m-shopping-cart',
+            default => 'heroicon-m-information-circle'
         };
     }
 
@@ -47,10 +48,11 @@ class ProductAnalyticsNeedAttention extends BaseWidget
     {
         return match($attentionType) {
             'expired' => 'danger',
-            'out_of_stock' => 'danger',
             'expiring_soon' => 'warning',
+            'out_of_stock' => 'danger',
             'low_stock' => 'warning',
-            default => 'info'
+            'need_purchase' => 'info',
+            default => 'gray'
         };
     }
 
@@ -61,11 +63,11 @@ class ProductAnalyticsNeedAttention extends BaseWidget
 
     public function getHeading(): ?string
     {
-        return 'Specific Products Requiring Action';
+        return 'Products Requiring Attention';
     }
 
     public function getDescription(): ?string
     {
-        return 'Detailed list of individual products with specific attention requirements';
+        return 'Critical issues: expiry dates, stock levels, and purchase requirements';
     }
 }
