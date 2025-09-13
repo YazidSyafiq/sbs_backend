@@ -96,7 +96,7 @@ class PurchaseProductResource extends Resource
                         Forms\Components\DatePicker::make('expected_delivery_date')
                             ->label('Expected Delivery Date')
                             ->minDate(fn (Get $get) => $get('order_date'))
-                            ->disabled(fn (Get $get) => $get('status') === 'Shipped' || $get('status') === 'Received' || $get('status') === 'Cancelled' || Auth::user()->hasRole('User'))
+                            ->disabled(fn (Get $get) => $get('status') === 'Shipped' || $get('status') === 'Received' || $get('status') === 'Done' || $get('status') === 'Cancelled' || Auth::user()->hasRole('User'))
                             ->hidden(fn (string $context) => $context === 'create' && Auth::user()->hasRole('User'))
                             ->live(),
                         Forms\Components\Select::make('status')
@@ -163,6 +163,15 @@ class PurchaseProductResource extends Resource
                                     ->minValue(1)
                                     ->required()
                                     ->live()
+                                    ->suffix(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) {
+                                            return 'pcs'; // default suffix
+                                        }
+
+                                        $product = Product::find($productId);
+                                        return $product?->unit ?? 'pcs';
+                                    })
                                     ->dehydrated()
                                     ->disabled(fn (Get $get) => $get('../../status') !== 'Draft')
                                     ->afterStateUpdated(function ($state, Get $get, Set $set) {
@@ -390,12 +399,10 @@ class PurchaseProductResource extends Resource
                             ->send();
                     })
                     ->visible(function (PurchaseProduct $record) {
-                        // Jika status Draft, semua bisa cancel
-                        if ($record->status === 'Draft' || $record->status === 'Requested' ) {
+                        // Hanya bisa cancel saat Draft atau Requested
+                        if (in_array($record->status, ['Draft', 'Requested'])) {
                             return true;
                         }
-
-                        // Status lain tidak bisa cancel
                         return false;
                     })
                     ->requiresConfirmation()
@@ -455,41 +462,23 @@ class PurchaseProductResource extends Resource
                     ->icon('heroicon-m-arrows-pointing-in')
                     ->color('blue')
                     ->action(function (PurchaseProduct $record) {
-                        $record->process();
+                        $processCheck = $record->canBeProcessed();
 
-                        Notification::make()
-                            ->title('PO Processed Successfully')
-                            ->body("Purchase order {$record->po_number} has been approved and is now being processed.")
-                            ->success()
-                            ->duration(5000)
-                            ->send();
-                    })
-                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Requested' && !Auth::user()->hasRole('User'))
-                    ->requiresConfirmation()
-                    ->modalHeading('Process Purchase Order')
-                    ->modalDescription('Do you want to process this purchase order and prepare all items for delivery?'),
-                Tables\Actions\Action::make('ship')
-                    ->label('Ship')
-                    ->icon('heroicon-m-truck')
-                    ->color('purple')
-                    ->action(function (PurchaseProduct $record) {
-                        $shipCheck = $record->canBeShipped();
-
-                        if (!$shipCheck['can_ship']) {
-                            $title = "Cannot Ship {$record->po_number}";
+                        if (!$processCheck['can_process']) {
+                            $title = "Cannot Process {$record->po_number}";
                             $message = "";
 
-                            if (!empty($shipCheck['validation_errors'])) {
-                                foreach ($shipCheck['validation_errors'] as $error) {
+                            if (!empty($processCheck['validation_errors'])) {
+                                foreach ($processCheck['validation_errors'] as $error) {
                                     $message .= "⚠️ {$error}<br><br>";
                                 }
                             }
 
-                            if (!empty($shipCheck['insufficient_items'])) {
-                                $insufficientCount = count($shipCheck['insufficient_items']);
+                            if (!empty($processCheck['insufficient_items'])) {
+                                $insufficientCount = count($processCheck['insufficient_items']);
                                 $message .= "{$insufficientCount} item(s) have insufficient stock:<br><br>";
 
-                                foreach ($shipCheck['insufficient_items'] as $item) {
+                                foreach ($processCheck['insufficient_items'] as $item) {
                                     $message .= "• {$item['product_name']} ({$item['product_code']}) - Need: <strong style='color:red;'>{$item['shortage']}</strong><br>";
                                 }
                             }
@@ -505,11 +494,50 @@ class PurchaseProductResource extends Resource
                             return;
                         }
 
+                        $record->process();
+
+                        Notification::make()
+                            ->title('PO Processed Successfully')
+                            ->body("Purchase order {$record->po_number} has been processed. Stock has been reserved and cost analysis completed.")
+                            ->success()
+                            ->duration(5000)
+                            ->send();
+                    })
+                    ->visible(fn (PurchaseProduct $record) => $record->status === 'Requested' && !Auth::user()->hasRole('User'))
+                    ->requiresConfirmation()
+                    ->modalHeading('Process Purchase Order')
+                    ->modalDescription('Are you sure you want to process this purchase order? This will reserve stock and calculate cost analysis.'),
+                Tables\Actions\Action::make('ship')
+                    ->label('Ship')
+                    ->icon('heroicon-m-truck')
+                    ->color('purple')
+                    ->action(function (PurchaseProduct $record) {
+                        $shipCheck = $record->canBeShipped();
+
+                        if (!$shipCheck['can_ship']) {
+                            $title = "Cannot Ship {$record->po_number}";
+                            $message = "";
+
+                            foreach ($shipCheck['validation_errors'] as $error) {
+                                $message .= "⚠️ {$error}<br><br>";
+                            }
+
+                            Notification::make()
+                                ->title($title)
+                                ->body($message)
+                                ->danger()
+                                ->persistent()
+                                ->duration(8000)
+                                ->send();
+
+                            return;
+                        }
+
                         $record->ship();
 
                         Notification::make()
                             ->title('PO Shipped Successfully')
-                            ->body("Purchase order {$record->po_number} has been shipped and stock has been deducted.")
+                            ->body("Purchase order {$record->po_number} has been shipped.")
                             ->success()
                             ->duration(5000)
                             ->send();
@@ -603,20 +631,17 @@ class PurchaseProductResource extends Resource
                         ->visible(function (PurchaseProduct $record) {
                             $user = Auth::user();
 
-                            // Jika bukan User role, bisa edit selain status Done
+                            // Jika bukan User role, bisa edit selain status Done dan Cancelled
                             if (!$user->hasRole('User')) {
-
-                                if($record->status === 'Done' || $record->status === 'Cancelled') {
+                                if(in_array($record->status, ['Done', 'Cancelled'])) {
                                     return false;
                                 }
-
-                                return $record->status !== 'Done';
+                                return true;
                             }
 
                             // Jika User role
                             if ($user->hasRole('User')) {
-
-                                if($record->status === 'Done' || $record->status === 'Cancelled') {
+                                if(in_array($record->status, ['Done', 'Cancelled'])) {
                                     return false;
                                 }
 
@@ -625,9 +650,9 @@ class PurchaseProductResource extends Resource
                                     return $record->status === 'Draft';
                                 }
 
-                                // Credit PO: bisa edit kecuali saat Done
+                                // Credit PO: bisa edit kecuali saat Done/Cancelled
                                 if ($record->type_po === 'credit') {
-                                    return $record->status !== 'Done';
+                                    return !in_array($record->status, ['Done', 'Cancelled']);
                                 }
                             }
 

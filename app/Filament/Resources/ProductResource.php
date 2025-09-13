@@ -221,6 +221,12 @@ class ProductResource extends Resource
                         'Low Stock' => 'warning',
                         'In Stock' => 'success',
                         default => 'gray'
+                    })
+                    ->icon(fn (string $state): string => match ($state) {
+                        'Out of Stock' => 'heroicon-m-x-circle',
+                        'Low Stock' => 'heroicon-m-exclamation-triangle',
+                        'Critical - Orders Exceed Stock' => 'heroicon-m-exclamation-triangle',
+                        'In Stock' => 'heroicon-m-check-circle',
                     }),
                 Tables\Columns\TextColumn::make('need_purchase')
                     ->label('Need Purchase')

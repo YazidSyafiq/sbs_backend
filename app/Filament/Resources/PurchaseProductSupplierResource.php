@@ -165,6 +165,14 @@ class PurchaseProductSupplierResource extends Resource
                             ->live()
                             ->dehydrated()
                             ->placeholder('Enter Unit')
+                            ->afterStateHydrated(function ($state, $set, $record) {
+                                // Populate unit saat form di-load untuk edit
+                                if ($record && $record->product) {
+                                    $set('unit', $record->product->unit ?? 'pcs');
+                                } elseif (!$state) {
+                                    $set('unit', 'pcs'); // default untuk create
+                                }
+                            })
                             ->hint('Example: pcs, kg, etc')
                             ->disabled(),
                         Forms\Components\TextInput::make('unit_price')

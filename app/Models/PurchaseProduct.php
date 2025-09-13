@@ -160,34 +160,11 @@ class PurchaseProduct extends Model
         return true;
     }
 
-    public function process(): void
-    {
-        $this->status = 'Processing';
-        $this->save();
-
-        // Kirim email notification
-        $this->sendStatusChangeEmail();
-    }
-
-    public function cancel(): void
-    {
-        $this->status = 'Cancelled';
-        $this->save();
-
-        // Kirim email notification
-        $this->sendStatusChangeEmail();
-    }
-
-    // Check apakah bisa di-ship berdasarkan ProductBatch
-    public function canBeShipped(): array
+    // Check apakah bisa di-process berdasarkan ProductBatch
+    public function canBeProcessed(): array
     {
         $insufficientItems = [];
         $validationErrors = [];
-
-        // Cek apakah expected delivery date sudah diisi
-        if (!$this->expected_delivery_date) {
-            $validationErrors[] = 'Expected delivery date must be set before shipping';
-        }
 
         // Cek stock untuk setiap item berdasarkan ProductBatch
         foreach ($this->items as $item) {
@@ -206,17 +183,17 @@ class PurchaseProduct extends Model
         }
 
         return [
-            'can_ship' => empty($insufficientItems) && empty($validationErrors),
+            'can_process' => empty($insufficientItems) && empty($validationErrors),
             'insufficient_items' => $insufficientItems,
             'validation_errors' => $validationErrors,
         ];
     }
 
-    public function ship(): bool
+    public function process(): bool
     {
-        $shipCheck = $this->canBeShipped();
+        $processCheck = $this->canBeProcessed();
 
-        if (!$shipCheck['can_ship']) {
+        if (!$processCheck['can_process']) {
             return false;
         }
 
@@ -230,7 +207,7 @@ class PurchaseProduct extends Model
             $this->consumeProductBatchFIFO($item->product_id, $item->quantity);
         }
 
-        $this->status = 'Shipped';
+        $this->status = 'Processing';
         $this->save();
 
         // Kirim email notification
@@ -268,6 +245,48 @@ class PurchaseProduct extends Model
             // Kurangi sisa yang dibutuhkan
             $remainingQuantity -= $consumeFromBatch;
         }
+    }
+
+    public function cancel(): void
+    {
+        $this->status = 'Cancelled';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+    }
+
+    // Check apakah bisa di-ship (sekarang hanya check delivery date)
+    public function canBeShipped(): array
+    {
+        $validationErrors = [];
+
+        // Cek apakah expected delivery date sudah diisi
+        if (!$this->expected_delivery_date) {
+            $validationErrors[] = 'Expected delivery date must be set before shipping';
+        }
+
+        return [
+            'can_ship' => empty($validationErrors),
+            'validation_errors' => $validationErrors,
+        ];
+    }
+
+    public function ship(): bool
+    {
+        $shipCheck = $this->canBeShipped();
+
+        if (!$shipCheck['can_ship']) {
+            return false;
+        }
+
+        $this->status = 'Shipped';
+        $this->save();
+
+        // Kirim email notification
+        $this->sendStatusChangeEmail();
+
+        return true;
     }
 
     public function received(): void

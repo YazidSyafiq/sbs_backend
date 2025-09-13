@@ -27,11 +27,15 @@ Route::get('/purchase-product-supplier/report', [PurchaseProductSupplierControll
     ->name('purchase-product-supplier.report')
     ->middleware('auth');
 
-// New routes for Supplier and Technician reports
 Route::get('/supplier/report', [SupplierController::class, 'report'])
     ->name('supplier.report')
     ->middleware('auth');
 
 Route::get('/technician/report', [TechnicianController::class, 'report'])
     ->name('technician.report')
+    ->middleware('auth');
+
+// New route for Purchase Product Report
+Route::get('/purchase-product/report', [PurchaseProductController::class, 'report'])
+    ->name('purchase-product.report')
     ->middleware('auth');
