@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Forms;
 use App\Models\Product;
 use App\Models\Supplier;
+use Auth;
 
 class ListPurchaseProductSuppliers extends ListRecords
 {
