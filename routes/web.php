@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PurchaseProductController;
 use App\Http\Controllers\PurchaseServiceController;
 use App\Http\Controllers\PurchaseProductSupplierController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TechnicianController;
 
 Route::get('/', function () {
     return redirect('admin/login');
@@ -16,12 +18,20 @@ Route::get('/purchase-service/{purchaseService}/invoice', [PurchaseServiceContro
 Route::get('/purchase-service/{purchaseService}/faktur', [PurchaseServiceController::class, 'faktur'])->name('purchase-service.faktur');
 Route::get('/purchase-supplier/{purchaseProduct}/faktur-supplier', [PurchaseProductSupplierController::class, 'faktur'])->name('purchase-product-supplier.faktur');
 
-// Tambahkan route untuk report
+// Report routes
 Route::get('/purchase-service/report', [PurchaseServiceController::class, 'report'])
     ->name('purchase-service.report')
     ->middleware('auth');
 
-// Route baru untuk Purchase Product Supplier Report
 Route::get('/purchase-product-supplier/report', [PurchaseProductSupplierController::class, 'report'])
     ->name('purchase-product-supplier.report')
+    ->middleware('auth');
+
+// New routes for Supplier and Technician reports
+Route::get('/supplier/report', [SupplierController::class, 'report'])
+    ->name('supplier.report')
+    ->middleware('auth');
+
+Route::get('/technician/report', [TechnicianController::class, 'report'])
+    ->name('technician.report')
     ->middleware('auth');
