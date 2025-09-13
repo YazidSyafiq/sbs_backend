@@ -8,6 +8,7 @@ use Filament\Resources\Pages\ListRecords;
 use Filament\Forms;
 use App\Models\Service;
 use App\Models\Technician;
+use Auth;
 
 class ListServicePurchases extends ListRecords
 {
@@ -18,6 +19,7 @@ class ListServicePurchases extends ListRecords
         return [
             Actions\Action::make('generate_report')
                 ->label('Generate Report')
+                ->hidden(Auth::user()->hasRole('User'))
                 ->icon('heroicon-o-document-chart-bar')
                 ->color('info')
                 ->form([
