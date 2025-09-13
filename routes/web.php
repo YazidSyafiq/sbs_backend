@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PurchaseProductController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PurchaseServiceController;
 use App\Http\Controllers\PurchaseProductSupplierController;
 use App\Http\Controllers\SupplierController;
@@ -38,4 +39,9 @@ Route::get('/technician/report', [TechnicianController::class, 'report'])
 // New route for Purchase Product Report
 Route::get('/purchase-product/report', [PurchaseProductController::class, 'report'])
     ->name('purchase-product.report')
+    ->middleware('auth');
+
+    // Product report route
+Route::get('/product/report', [ProductController::class, 'report'])
+    ->name('product.report')
     ->middleware('auth');
