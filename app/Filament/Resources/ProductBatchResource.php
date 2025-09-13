@@ -161,6 +161,7 @@ class ProductBatchResource extends Resource
                 Tables\Filters\SelectFilter::make('product_id')
                     ->relationship('product', 'name')
                     ->label('Product')
+                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' (' . $record->code . ')')
                     ->searchable()
                     ->preload(),
                 Tables\Filters\Filter::make('low_stock')

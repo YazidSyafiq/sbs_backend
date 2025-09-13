@@ -28,7 +28,7 @@ class POReportProductProfitMarginChart extends ChartWidget
                     'backgroundColor' => 'rgba(168, 85, 247, 0.1)', // Light purple
                     'fill' => false,
                     'tension' => 0.4,
-                    'pointRadius' => 5,
+                    'pointRadius' => 4,
                     'pointHoverRadius' => 8,
                     'pointBackgroundColor' => 'rgb(168, 85, 247)',
                     'pointBorderColor' => '#fff',
@@ -62,37 +62,26 @@ class POReportProductProfitMarginChart extends ChartWidget
                         'display' => true,
                         'text' => 'Profit Margin (%)',
                         'font' => [
-                            'size' => 14,
+                            'size' => 12,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'color' => 'rgba(0, 0, 0, 0.1)',
                     ],
-                    'ticks' => [
-                        'font' => [
-                            'size' => 12
-                        ],
-                        'callback' => 'function(value) { return value + "%"; }'
-                    ]
                 ],
                 'x' => [
                     'title' => [
                         'display' => true,
                         'text' => 'Period',
                         'font' => [
-                            'size' => 14,
+                            'size' => 12,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'display' => false,
                     ],
-                    'ticks' => [
-                        'font' => [
-                            'size' => 12
-                        ]
-                    ]
                 ],
             ],
             'interaction' => [
@@ -105,10 +94,9 @@ class POReportProductProfitMarginChart extends ChartWidget
                     'position' => 'top',
                     'labels' => [
                         'usePointStyle' => true,
-                        'padding' => 25,
+                        'padding' => 20,
                         'font' => [
-                            'size' => 13,
-                            'weight' => 'bold'
+                            'size' => 12
                         ]
                     ]
                 ],
@@ -122,7 +110,7 @@ class POReportProductProfitMarginChart extends ChartWidget
                     'borderColor' => 'rgba(255, 255, 255, 0.3)',
                     'borderWidth' => 1,
                     'cornerRadius' => 8,
-                    'padding' => 15,
+                    'padding' => 12,
                     'displayColors' => true,
                     'titleFont' => [
                         'size' => 14,
@@ -131,11 +119,6 @@ class POReportProductProfitMarginChart extends ChartWidget
                     'bodyFont' => [
                         'size' => 13
                     ],
-                    'callbacks' => [
-                        'label' => 'function(context) {
-                            return context.dataset.label + ": " + context.parsed.y + "%";
-                        }'
-                    ]
                 ]
             ],
         ];

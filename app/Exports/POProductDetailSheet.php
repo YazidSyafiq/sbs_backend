@@ -109,9 +109,9 @@ class POProductDetailSheet implements FromQuery, WithHeadings, WithMapping, With
         // Add profit data ONLY for non-User roles AND only for PAID orders
         if ($user && !$user->hasRole('User')) {
             if ($po->status_paid === 'paid') {
-                // Calculate profit data for PAID orders
+                // Calculate profit data for PAID orders using cost_price from items
                 $totalCost = $po->items->sum(function($item) {
-                    return $item->supplier_price * $item->quantity;
+                    return $item->cost_price ? ($item->cost_price * $item->quantity) : 0;
                 });
                 $totalRevenue = $po->total_amount;
                 $totalProfit = $totalRevenue - $totalCost;

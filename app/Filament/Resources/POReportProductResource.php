@@ -91,6 +91,7 @@ class POReportProductResource extends Resource
                 }
             })
             ->defaultSort('order_date', 'desc')
+            ->defaultSort('id', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('branch_name')
                     ->label('Branch')

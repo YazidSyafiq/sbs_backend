@@ -2,17 +2,11 @@
 
 namespace App\Exports;
 
-use App\Models\POReportProduct;
-use App\Models\Branch;
-use Maatwebsite\Excel\Concerns\Exportable;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
-use Carbon\Carbon;
 use Auth;
 
 class POReportProductExport implements WithMultipleSheets
 {
-    use Exportable;
-
     protected $filters;
 
     public function __construct(array $filters = [])
@@ -23,16 +17,17 @@ class POReportProductExport implements WithMultipleSheets
     public function sheets(): array
     {
         $user = Auth::user();
+        $sheets = [];
 
-        // Basic sheets for all users
-        $sheets = [
-            'Summary' => new POProductSummarySheet($this->filters),
-            'Detailed Data' => new POProductDetailSheet($this->filters),
-        ];
+        // Summary sheet untuk semua user
+        $sheets[] = new POProductSummarySheet($this->filters);
 
-        // Add profit analysis sheet ONLY for Admin, Supervisor, Manager, Super Admin
+        // Detail sheet untuk semua user
+        $sheets[] = new POProductDetailSheet($this->filters);
+
+        // Profit analysis sheet hanya untuk non-User roles
         if ($user && !$user->hasRole('User')) {
-            $sheets['Profit Analysis'] = new POProductProfitSheet($this->filters);
+            $sheets[] = new POProductProfitSheet($this->filters);
         }
 
         return $sheets;

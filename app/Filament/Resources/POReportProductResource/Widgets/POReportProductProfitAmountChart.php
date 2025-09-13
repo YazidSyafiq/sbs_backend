@@ -32,7 +32,7 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'backgroundColor' => 'rgba(34, 197, 94, 0.1)',
                     'fill' => false,
                     'tension' => 0.4,
-                    'pointRadius' => 5,
+                    'pointRadius' => 4,
                     'pointHoverRadius' => 8,
                     'pointBackgroundColor' => 'rgb(34, 197, 94)',
                     'pointBorderColor' => '#fff',
@@ -43,15 +43,15 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'label' => 'Cost (Paid Orders)',
                     'data' => $costs,
                     'borderColor' => 'rgb(239, 68, 68)',
-                    'backgroundColor' => 'rgba(239, 68, 68, 0.1)',
-                    'fill' => false,
+                    'backgroundColor' => 'rgba(239, 68, 68, 0.3)',
+                    'fill' => 'origin',
                     'tension' => 0.4,
-                    'pointRadius' => 5,
+                    'pointRadius' => 4,
                     'pointHoverRadius' => 8,
                     'pointBackgroundColor' => 'rgb(239, 68, 68)',
                     'pointBorderColor' => '#fff',
                     'pointBorderWidth' => 2,
-                    'borderWidth' => 3,
+                    'borderWidth' => 2,
                 ],
                 [
                     'label' => 'Realized Profit',
@@ -60,12 +60,12 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'backgroundColor' => 'rgba(59, 130, 246, 0.3)',
                     'fill' => 'origin',
                     'tension' => 0.4,
-                    'pointRadius' => 5,
+                    'pointRadius' => 4,
                     'pointHoverRadius' => 8,
                     'pointBackgroundColor' => 'rgb(59, 130, 246)',
                     'pointBorderColor' => '#fff',
                     'pointBorderWidth' => 2,
-                    'borderWidth' => 3,
+                    'borderWidth' => 2,
                 ],
             ],
             'labels' => $labels,
@@ -94,36 +94,26 @@ class POReportProductProfitAmountChart extends ChartWidget
                         'display' => true,
                         'text' => 'Amount (Million Rp)',
                         'font' => [
-                            'size' => 14,
+                            'size' => 12,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'color' => 'rgba(0, 0, 0, 0.1)',
                     ],
-                    'ticks' => [
-                        'font' => [
-                            'size' => 12
-                        ]
-                    ]
                 ],
                 'x' => [
                     'title' => [
                         'display' => true,
                         'text' => 'Period',
                         'font' => [
-                            'size' => 14,
+                            'size' => 12,
                             'weight' => 'bold'
                         ]
                     ],
                     'grid' => [
                         'display' => false,
                     ],
-                    'ticks' => [
-                        'font' => [
-                            'size' => 12
-                        ]
-                    ]
                 ],
             ],
             'interaction' => [
@@ -136,10 +126,9 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'position' => 'top',
                     'labels' => [
                         'usePointStyle' => true,
-                        'padding' => 25,
+                        'padding' => 20,
                         'font' => [
-                            'size' => 13,
-                            'weight' => 'bold'
+                            'size' => 12
                         ]
                     ]
                 ],
@@ -153,7 +142,7 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'borderColor' => 'rgba(255, 255, 255, 0.3)',
                     'borderWidth' => 1,
                     'cornerRadius' => 8,
-                    'padding' => 15,
+                    'padding' => 12,
                     'displayColors' => true,
                     'titleFont' => [
                         'size' => 14,
@@ -162,11 +151,6 @@ class POReportProductProfitAmountChart extends ChartWidget
                     'bodyFont' => [
                         'size' => 13
                     ],
-                    'callbacks' => [
-                        'label' => 'function(context) {
-                            return context.dataset.label + ": " + context.parsed.y + "M Rp";
-                        }'
-                    ]
                 ]
             ],
         ];

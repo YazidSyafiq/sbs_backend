@@ -130,8 +130,10 @@ class POReportProduct extends Model
         $paidPos = $allPos->filter(fn($po) => $po->status_paid === 'paid');
         $paidItems = $paidPos->flatMap->items;
 
+        // Use cost_price from PurchaseProductItem (already calculated during shipping)
         $totalCost = $paidItems->sum(function($item) {
-            return $item->supplier_price * $item->quantity;
+            // Use cost_price if available (from weighted average calculation), otherwise fallback
+            return $item->cost_price ? ($item->cost_price * $item->quantity) : 0;
         });
 
         $totalRevenue = $paidItems->sum('total_price');
@@ -142,9 +144,13 @@ class POReportProduct extends Model
         $unpaidPos = $allPos->filter(fn($po) => $po->status_paid === 'unpaid');
         $unpaidItems = $unpaidPos->flatMap->items;
         $outstandingRevenue = $unpaidItems->sum('total_price');
+
+        // For unpaid orders, estimate cost using current product average cost
         $outstandingCost = $unpaidItems->sum(function($item) {
-            return $item->supplier_price * $item->quantity;
+            $avgCost = $item->product->average_cost_price ?? 0;
+            return $avgCost * $item->quantity;
         });
+
         $potentialProfit = $outstandingRevenue - $outstandingCost;
 
         return (object)[
@@ -179,9 +185,12 @@ class POReportProduct extends Model
         $productStats = $paidItems->groupBy('product_id')->map(function($items) {
             $product = $items->first()->product;
             $totalQuantity = $items->sum('quantity');
+
+            // Use calculated cost_price from items
             $totalCost = $items->sum(function($item) {
-                return $item->supplier_price * $item->quantity;
+                return $item->cost_price ? ($item->cost_price * $item->quantity) : 0;
             });
+
             $totalRevenue = $items->sum('total_price');
             $totalProfit = $totalRevenue - $totalCost;
             $profitMargin = $totalRevenue > 0 ? round(($totalProfit / $totalRevenue) * 100, 2) : 0;
@@ -236,7 +245,7 @@ class POReportProduct extends Model
             $paidPeriodItems = $paidPeriodPos->flatMap->items;
 
             $periodCost = $paidPeriodItems->sum(function($item) {
-                return $item->supplier_price * $item->quantity;
+                return $item->cost_price ? ($item->cost_price * $item->quantity) : 0;
             });
 
             $periodRevenue = $paidPeriodItems->sum('total_price');
@@ -280,7 +289,7 @@ class POReportProduct extends Model
             $paidBranchItems = $paidBranchPos->flatMap->items;
 
             $totalCost = $paidBranchItems->sum(function($item) {
-                return $item->supplier_price * $item->quantity;
+                return $item->cost_price ? ($item->cost_price * $item->quantity) : 0;
             });
 
             $totalRevenue = $paidBranchItems->sum('total_price');
@@ -291,8 +300,11 @@ class POReportProduct extends Model
             $unpaidBranchPos = $branchPos->filter(fn($po) => $po->status_paid === 'unpaid');
             $unpaidBranchItems = $unpaidBranchPos->flatMap->items;
             $potentialRevenue = $unpaidBranchItems->sum('total_price');
+
+            // Estimate cost for unpaid items
             $potentialCost = $unpaidBranchItems->sum(function($item) {
-                return $item->supplier_price * $item->quantity;
+                $avgCost = $item->product->average_cost_price ?? 0;
+                return $avgCost * $item->quantity;
             });
 
             $results->push((object)[
@@ -682,131 +694,5 @@ class POReportProduct extends Model
             }
             return !is_null($value) && $value !== false && $value !== '';
         })->count() > 0;
-    }
-
-    // ===============================
-    // ORIGINAL METHODS (For backward compatibility)
-    // ===============================
-
-    /**
-     * Get accounting summary by branch - ORIGINAL VERSION
-     */
-    public static function getAccountingSummaryByBranch()
-    {
-        $allPos = PurchaseProduct::with(['user.branch'])
-            ->whereNotIn('status', ['Draft', 'Cancelled'])
-            ->get();
-
-        $branchGroups = $allPos->groupBy(function($po) {
-            return $po->user->branch->name ?? 'No Branch';
-        });
-
-        $results = collect();
-
-        foreach ($branchGroups as $branchName => $branchPos) {
-            $branchInfo = $branchPos->first()->user->branch ?? null;
-
-            $results->push((object)[
-                'branch_id' => $branchInfo->id ?? null,
-                'branch_name' => $branchName,
-                'branch_code' => $branchInfo->code ?? 'N/A',
-                'total_pos' => $branchPos->count(),
-                'total_amount' => $branchPos->sum('total_amount'),
-                'outstanding_debt' => $branchPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount'),
-                'paid_amount' => $branchPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount'),
-                'average_po_amount' => round($branchPos->avg('total_amount'), 2),
-            ]);
-        }
-
-        return $results->sortByDesc('total_amount');
-    }
-
-    /**
-     * Get monthly trends - ORIGINAL VERSION
-     */
-    public static function getMonthlyTrends($months = 12, $userBranchId = null)
-    {
-        $query = PurchaseProduct::query()
-            ->whereNotIn('status', ['Draft', 'Cancelled'])
-            ->where('order_date', '>=', now()->subMonths($months - 1)->startOfMonth());
-
-        if ($userBranchId) {
-            $query->whereHas('user', function($q) use ($userBranchId) {
-                $q->where('branch_id', $userBranchId);
-            });
-        }
-
-        $allPos = $query->get();
-
-        $monthlyGroups = $allPos->groupBy(function($po) {
-            return $po->order_date->format('Y-m');
-        });
-
-        $results = collect();
-
-        for ($i = $months - 1; $i >= 0; $i--) {
-            $month = now()->subMonths($i);
-            $monthKey = $month->format('Y-m');
-            $monthPos = $monthlyGroups->get($monthKey, collect());
-
-            $results->push((object)[
-                'month' => $monthKey,
-                'month_name' => $month->format('M Y'),
-                'total_pos' => $monthPos->count(),
-                'total_amount' => $monthPos->sum('total_amount'),
-                'outstanding_debt' => $monthPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount'),
-                'credit_pos' => $monthPos->where('type_po', 'credit')->count(),
-                'cash_pos' => $monthPos->where('type_po', 'cash')->count(),
-            ]);
-        }
-
-        return $results;
-    }
-
-    /**
-     * Get overview statistics - ORIGINAL VERSION
-     */
-    public static function getOverviewStats()
-    {
-        $allPos = static::with(['user.branch'])
-            ->activeOnly()
-            ->get();
-
-        return (object)[
-            'total_count' => $allPos->count(),
-            'total_amount' => $allPos->sum('total_amount'),
-            'outstanding_debt' => $allPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount'),
-            'paid_amount' => $allPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount'),
-            'credit_count' => $allPos->where('type_po', 'credit')->count(),
-            'cash_count' => $allPos->where('type_po', 'cash')->count(),
-            'credit_amount' => $allPos->where('type_po', 'credit')->sum('total_amount'),
-            'cash_amount' => $allPos->where('type_po', 'cash')->sum('total_amount'),
-            'credit_outstanding' => $allPos->filter(fn($po) => $po->type_po === 'credit' && $po->status_paid === 'unpaid')->sum('total_amount'),
-            'cash_outstanding' => $allPos->filter(fn($po) => $po->type_po === 'cash' && $po->status_paid === 'unpaid')->sum('total_amount'),
-        ];
-    }
-
-    /**
-     * Get statistics by type - ORIGINAL VERSION
-     */
-    public static function getStatsByType()
-    {
-        $allPos = static::activeOnly()->get();
-
-        $statusGroups = $allPos->groupBy('status');
-
-        $results = collect();
-        foreach (['Requested', 'Processing', 'Shipped', 'Received', 'Done'] as $status) {
-            $statusPos = $statusGroups->get($status, collect());
-
-            if ($statusPos->count() > 0) {
-                $results->put($status, (object)[
-                    'count' => $statusPos->count(),
-                    'total_amount' => $statusPos->sum('total_amount'),
-                ]);
-            }
-        }
-
-        return $results;
     }
 }
