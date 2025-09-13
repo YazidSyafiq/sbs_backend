@@ -74,40 +74,41 @@ class Product extends Model
         return $totalQuantity > 0 ? $totalValue / $totalQuantity : 0;
     }
 
-    // Get lowest cost price
-    public function getLowestCostPriceAttribute(): float
+    // Get pending orders (Requested & Processing status)
+    public function getPendingOrdersAttribute(): int
     {
-        return $this->productBatches()
-            ->where('quantity', '>', 0)
-            ->min('cost_price') ?? 0;
+        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+                $query->whereIn('status', ['Requested', 'Processing']);
+            })
+            ->where('product_id', $this->id)
+            ->sum('quantity');
     }
 
-    // Get highest cost price
-    public function getHighestCostPriceAttribute(): float
+    // Calculate need purchase quantity (tanpa minimum stock)
+    public function getNeedPurchaseAttribute(): int
     {
-        return $this->productBatches()
-            ->where('quantity', '>', 0)
-            ->max('cost_price') ?? 0;
-    }
+        $availableStock = $this->available_stock;
+        $pendingOrders = $this->pending_orders;
 
-    // Get potential profit margin
-    public function getPotentialProfitMarginAttribute(): float
-    {
-        $averageCost = $this->average_cost_price;
-
-        if ($averageCost <= 0) {
-            return 0;
+        // Jika pending orders melebihi available stock, butuh pembelian
+        if ($pendingOrders > $availableStock) {
+            return $pendingOrders - $availableStock;
         }
 
-        return (($this->price - $averageCost) / $averageCost) * 100;
+        return 0;
     }
 
+    // Status stock berdasarkan available stock vs pending orders
     public function getStatusAttribute(): string
     {
         $availableStock = $this->available_stock;
+        $pendingOrders = $this->pending_orders;
+        $projectedStock = $availableStock - $pendingOrders;
 
         if ($availableStock <= 0) {
             return 'Out of Stock';
+        } elseif ($projectedStock <= 0) {
+            return 'Critical - Orders Exceed Stock';
         } elseif ($availableStock < 10) {
             return 'Low Stock';
         } else {

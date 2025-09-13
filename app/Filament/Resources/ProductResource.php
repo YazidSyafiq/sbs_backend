@@ -52,9 +52,8 @@ class ProductResource extends Resource
                             ->preload()
                             ->placeholder('Select Category')
                             ->label('Category')
-                            ->live() // Tambahkan live untuk reactive
+                            ->live()
                             ->afterStateUpdated(function ($state, Set $set) {
-                                // Reset code_id ketika category berubah
                                 $set('show_code', '1');
                                 $set('code_id', null);
                             })
@@ -75,7 +74,7 @@ class ProductResource extends Resource
                             ->searchable()
                             ->preload()
                             ->placeholder('Select Code')
-                            ->live() // Tambahkan live untuk reactive
+                            ->live()
                             ->label('Code')
                             ->required(),
                         Forms\Components\TextInput::make('code')
@@ -179,39 +178,63 @@ class ProductResource extends Resource
                         if (is_null($state)) return '-';
                         return 'Rp ' . number_format($state, 0, ',', '.');
                     }),
-                Tables\Columns\TextColumn::make('potential_profit_margin')
-                    ->label('Profit Margin')
-                    ->badge()
-                    ->color(fn ($state): string => match (true) {
-                        $state >= 50 => 'success',
-                        $state >= 25 => 'warning',
-                        $state >= 0 => 'info',
-                        default => 'danger'
-                    })
-                    ->formatStateUsing(function ($state) {
-                        if (!$state && $state !== 0) return '-';
-                        return number_format($state, 1) . '%';
-                    }),
                 Tables\Columns\TextColumn::make('total_stock')
-                    ->label('Total Stock')
+                    ->label('Current Stock')
                     ->badge()
-                    ->color(fn ($record): string => match ($record->status) {
+                    ->color(function ($record) {
+                        $currentStock = $record->total_stock;
+                        $pendingOrders = $record->pending_orders;
+
+                        if ($pendingOrders > $currentStock) {
+                            return 'danger';
+                        } elseif ($currentStock <= 0) {
+                            return 'danger';
+                        } elseif ($currentStock < 10) {
+                            return 'warning';
+                        } else {
+                            return 'success';
+                        }
+                    })
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs')),
+                Tables\Columns\TextColumn::make('pending_orders')
+                    ->label('Pending Orders')
+                    ->badge()
+                    ->color(function ($record) {
+                        $currentStock = $record->total_stock;
+                        $pendingOrders = $record->pending_orders;
+
+                        if ($pendingOrders > $currentStock) {
+                            return 'danger';
+                        } elseif ($pendingOrders > 0) {
+                            return 'warning';
+                        } else {
+                            return 'gray';
+                        }
+                    })
+                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs')),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Stock Status')
+                    ->badge()
+                    ->color(fn ($record) => match ($record->status) {
                         'Out of Stock' => 'danger',
+                        'Critical - Orders Exceed Stock' => 'danger',
                         'Low Stock' => 'warning',
                         'In Stock' => 'success',
                         default => 'gray'
-                    })
-                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs')),
-                Tables\Columns\TextColumn::make('available_stock')
-                    ->label('Available Stock')
+                    }),
+                Tables\Columns\TextColumn::make('need_purchase')
+                    ->label('Need Purchase')
                     ->badge()
-                    ->color(fn ($record): string => match ($record->status) {
-                        'Out of Stock' => 'danger',
-                        'Low Stock' => 'warning',
-                        'In Stock' => 'success',
-                        default => 'gray'
+                    ->color(fn ($state) => match (true) {
+                        $state > 50 => 'danger',
+                        $state > 20 => 'warning',
+                        $state > 0 => 'info',
+                        default => 'success'
                     })
-                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->unit ?? 'pcs')),
+                    ->formatStateUsing(function ($state, $record) {
+                        if ($state <= 0) return 'No';
+                        return number_format($state) . ' ' . ($record->unit ?? 'pcs');
+                    }),
                 Tables\Columns\TextColumn::make('productBatches_count')
                     ->label('Batches')
                     ->badge()
@@ -224,28 +247,44 @@ class ProductResource extends Resource
                     ->label('Category')
                     ->searchable()
                     ->preload(),
+                Tables\Filters\Filter::make('out_of_stock')
+                    ->label('Out of Stock')
+                    ->query(fn (Builder $query): Builder =>
+                        $query->whereDoesntHave('productBatches', function ($q) {
+                            $q->where('quantity', '>', 0);
+                        })
+                    ),
                 Tables\Filters\Filter::make('low_stock')
                     ->label('Low Stock')
                     ->query(function (Builder $query): Builder {
-                        return $query->whereHas('productBatches', function ($q) {
-                            $q->havingRaw('SUM(quantity) < 10');
-                        });
+                        return $query->whereHas('productBatches')
+                            ->get()
+                            ->filter(function ($product) {
+                                return $product->available_stock > 0 && $product->available_stock < 10;
+                            })
+                            ->pluck('id');
                     }),
-                Tables\Filters\Filter::make('out_of_stock')
-                    ->label('Out of Stock')
+                Tables\Filters\Filter::make('need_purchase')
+                    ->label('Need Purchase')
                     ->query(function (Builder $query): Builder {
-                        return $query->whereDoesntHave('productBatches', function ($q) {
-                            $q->where('quantity', '>', 0);
-                        });
+                        return $query->whereHas('productBatches')
+                            ->get()
+                            ->filter(function ($product) {
+                                return $product->need_purchase > 0;
+                            })
+                            ->pluck('id');
                     }),
-                Tables\Filters\Filter::make('high_profit')
-                    ->label('High Profit (≥50%)')
+                Tables\Filters\Filter::make('critical_stock')
+                    ->label('Critical Stock')
                     ->query(function (Builder $query): Builder {
-                        return $query->whereHas('productBatches', function ($q) {
-                            $q->where('quantity', '>', 0);
-                        })->get()->filter(function ($product) {
-                            return $product->potential_profit_margin >= 50;
-                        })->pluck('id');
+                        return $query->whereHas('productBatches')
+                            ->get()
+                            ->filter(function ($product) {
+                                $availableStock = $product->available_stock;
+                                $pendingOrders = $product->pending_orders;
+                                return ($availableStock - $pendingOrders) <= 0 && $availableStock > 0;
+                            })
+                            ->pluck('id');
                     }),
             ])
             ->actions([

@@ -111,11 +111,6 @@ class PurchaseProduct extends Model
         $this->save();
     }
 
-    public function getInvoiceUrl(): string
-    {
-        return URL::route('purchase-product.invoice', ['purchaseProduct' => $this->id]);
-    }
-
     public function canBeRequested(): array
     {
         $validationErrors = [];
@@ -183,7 +178,7 @@ class PurchaseProduct extends Model
         $this->sendStatusChangeEmail();
     }
 
-    // Check apakah bisa di-ship
+    // Check apakah bisa di-ship berdasarkan ProductBatch
     public function canBeShipped(): array
     {
         $insufficientItems = [];
@@ -194,18 +189,18 @@ class PurchaseProduct extends Model
             $validationErrors[] = 'Expected delivery date must be set before shipping';
         }
 
-        // Cek stock untuk setiap item
+        // Cek stock untuk setiap item berdasarkan ProductBatch
         foreach ($this->items as $item) {
-            $currentStock = $item->product->stock;
+            $availableStock = $item->product->available_stock; // Dari ProductBatch
             $requiredQuantity = $item->quantity;
 
-            if ($currentStock < $requiredQuantity) {
+            if ($availableStock < $requiredQuantity) {
                 $insufficientItems[] = [
                     'product_name' => $item->product->name,
                     'product_code' => $item->product->code,
                     'required' => $requiredQuantity,
-                    'available' => $currentStock,
-                    'shortage' => $requiredQuantity - $currentStock,
+                    'available' => $availableStock,
+                    'shortage' => $requiredQuantity - $availableStock,
                 ];
             }
         }
@@ -222,13 +217,17 @@ class PurchaseProduct extends Model
         $shipCheck = $this->canBeShipped();
 
         if (!$shipCheck['can_ship']) {
-            return false; // Return false instead of throwing exception
+            return false;
         }
 
-        // Kurangi stock untuk setiap item
+        // 1. Hitung dan set cost analysis untuk setiap item SEBELUM konsumsi stock
         foreach ($this->items as $item) {
-            $item->product->stock -= $item->quantity;
-            $item->product->save();
+            $item->setCostAnalysis();
+        }
+
+        // 2. Konsumsi stock dari ProductBatch untuk setiap item dengan FIFO
+        foreach ($this->items as $item) {
+            $this->consumeProductBatchFIFO($item->product_id, $item->quantity);
         }
 
         $this->status = 'Shipped';
@@ -238,6 +237,37 @@ class PurchaseProduct extends Model
         $this->sendStatusChangeEmail();
 
         return true;
+    }
+
+    /**
+     * Konsumsi stock dari ProductBatch dengan sistem FIFO
+     */
+    private function consumeProductBatchFIFO(int $productId, int $quantityNeeded): void
+    {
+        $remainingQuantity = $quantityNeeded;
+
+        // Ambil batch yang tersedia dengan urutan FIFO (oldest first)
+        $availableBatches = ProductBatch::where('product_id', $productId)
+            ->where('quantity', '>', 0)
+            ->orderBy('entry_date', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        foreach ($availableBatches as $batch) {
+            if ($remainingQuantity <= 0) {
+                break;
+            }
+
+            $batchQuantity = $batch->quantity;
+            $consumeFromBatch = min($remainingQuantity, $batchQuantity);
+
+            // Update quantity di batch
+            $batch->quantity -= $consumeFromBatch;
+            $batch->save();
+
+            // Kurangi sisa yang dibutuhkan
+            $remainingQuantity -= $consumeFromBatch;
+        }
     }
 
     public function received(): void

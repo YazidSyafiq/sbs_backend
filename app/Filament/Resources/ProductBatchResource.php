@@ -101,6 +101,7 @@ class ProductBatchResource extends Resource
     {
         return $table
             ->defaultSort('entry_date', 'desc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('batch_number')
                     ->label('Batch Number')
