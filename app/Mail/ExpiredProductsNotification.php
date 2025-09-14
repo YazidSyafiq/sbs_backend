@@ -15,14 +15,18 @@ class ExpiredProductsNotification extends Mailable
     use Queueable, SerializesModels;
 
     public function __construct(
-        public Collection $expiredProducts
+        public Collection $expiredProductsData
     ) {}
 
     public function envelope(): Envelope
     {
-        $count = $this->expiredProducts->count();
+        $productCount = $this->expiredProductsData->count();
+        $batchCount = $this->expiredProductsData->sum(function ($productData) {
+            return $productData['batches']->count();
+        });
+
         return new Envelope(
-            subject: "🚨 URGENT: {$count} Product(s) Already Expired",
+            subject: "🚨 URGENT: {$productCount} Product(s) with {$batchCount} Expired Batch(es)",
         );
     }
 

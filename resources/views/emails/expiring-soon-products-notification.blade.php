@@ -4,20 +4,21 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Products Expiring Soon Alert</title>
+    <title>Product Batches Expiring Soon Alert</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
         * {
             box-sizing: border-box;
+            font-family: 'Poppins', Arial, sans-serif !important;
         }
 
         body {
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
             line-height: 1.4;
             color: #333 !important;
             background-color: #f8f9fa !important;
-            max-width: 600px;
+            max-width: 700px;
             margin: 0 auto;
             padding: 10px;
         }
@@ -58,14 +59,14 @@
             margin: 0;
             font-size: 18px;
             line-height: 1.3;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
             font-weight: bold;
         }
 
         .header p {
             margin: 8px 0 0 0;
             font-size: 12px;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
             font-weight: 400;
         }
 
@@ -77,40 +78,40 @@
             margin-bottom: 15px;
             border-left: 4px solid #ffc107;
             font-size: 13px;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
         }
 
         .alert-warning p {
             margin: 5px 0;
         }
 
-        /* Responsive Table */
+        /* Desktop Table */
         .table-container {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             margin-top: 10px;
         }
 
-        table {
+        .desktop-table {
             width: 100%;
             border-collapse: collapse;
-            min-width: 400px;
             font-size: 11px;
             background-color: white !important;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
+            display: table;
         }
 
-        th,
-        td {
-            padding: 6px 4px;
+        .desktop-table th,
+        .desktop-table td {
+            padding: 8px 6px;
             text-align: left;
             border-bottom: 1px solid #ddd;
             word-wrap: break-word;
             vertical-align: top;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
         }
 
-        th {
+        .desktop-table th {
             background-color: #ffc107 !important;
             color: #212529 !important;
             font-weight: 600;
@@ -119,50 +120,141 @@
             letter-spacing: 0.5px;
         }
 
-        td {
+        .desktop-table td {
             font-weight: 400;
         }
 
-        .expiring-row {
+        .batch-row {
             background-color: #fff3cd !important;
         }
 
-        .expiring-row:nth-child(even) {
+        .batch-row:nth-child(even) {
             background-color: #ffeaa7 !important;
         }
 
         /* Column specific widths */
         .col-code {
-            width: 20%;
+            width: 18%;
         }
 
         .col-name {
-            width: 20%;
+            width: 25%;
         }
 
         .col-category {
-            width: 20%;
+            width: 18%;
+        }
+
+        .col-batch {
+            width: 22%;
         }
 
         .col-stock {
-            width: 20%;
+            width: 12%;
         }
 
         .col-expiry {
-            width: 20%;
+            width: 15%;
+        }
+
+        /* Mobile Card Layout */
+        .mobile-cards {
+            display: none;
+        }
+
+        .product-card {
+            background-color: #fff3cd !important;
+            border: 1px solid #ffc107;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        .product-card-header {
+            background-color: #ffc107 !important;
+            color: #212529 !important;
+            padding: 10px 12px;
+            font-weight: 600;
+            font-size: 14px;
+            font-family: 'Poppins', Arial, sans-serif !important;
+            line-height: 1.3;
+        }
+
+        .product-info {
+            font-size: 12px;
+            margin-top: 6px;
+            opacity: 0.95;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        /* Mobile Batch Table */
+        .batch-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: transparent !important;
+            margin: 0;
+            font-size: 12px;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        .batch-table th {
+            background-color: #ffc107 !important;
+            color: #212529 !important;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #ffc107;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        .batch-table td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #ffc107;
+            font-weight: 400;
+            vertical-align: top;
+            word-wrap: break-word;
+            background-color: #fff3cd !important;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        .batch-table tr:nth-child(even) td {
+            background-color: #ffeaa7 !important;
+        }
+
+        .batch-number-cell {
+            font-size: 11px;
+            font-weight: 500;
+            font-family: 'Poppins', Arial, sans-serif !important;
+            line-height: 1.4;
+        }
+
+        .stock-cell {
+            text-align: center;
+            font-weight: 600;
+            font-family: 'Poppins', Arial, sans-serif !important;
+        }
+
+        .expiry-cell {
+            text-align: center;
+            font-weight: 600;
+            color: #ffc107;
+            font-family: 'Poppins', Arial, sans-serif !important;
         }
 
         .footer {
             margin-top: 20px;
             padding: 15px;
             background-color: #2c2c2c !important;
-            /* Dark grey background */
             color: #ffffff !important;
-            /* White text */
             border-radius: 8px;
             font-size: 11px;
             text-align: center;
-            font-family: 'Poppins', Arial, sans-serif;
+            font-family: 'Poppins', Arial, sans-serif !important;
         }
 
         .footer p {
@@ -176,10 +268,10 @@
             width: auto;
         }
 
-        /* Mobile Styles */
-        @media screen and (max-width: 480px) {
+        /* Mobile Responsive */
+        @media screen and (max-width: 600px) {
             body {
-                padding: 10px;
+                padding: 5px;
             }
 
             .container {
@@ -194,23 +286,86 @@
                 font-size: 11px;
             }
 
-            table {
-                font-size: 6px;
-                min-width: 300px;
-            }
-
-            th,
-            td {
-                padding: 3px 2px;
-            }
-
-            th {
-                font-size: 7px;
-            }
-
             .alert-warning {
-                font-size: 11px;
+                font-size: 12px;
                 padding: 10px;
+            }
+
+            /* Hide desktop table, show mobile cards */
+            .desktop-table {
+                display: none !important;
+            }
+
+            .mobile-cards {
+                display: block !important;
+            }
+
+            .product-card-header {
+                padding: 8px 10px;
+                font-size: 13px;
+            }
+
+            .product-info {
+                font-size: 11px;
+                margin-top: 5px;
+            }
+
+            .batch-table th {
+                padding: 8px 10px;
+                font-size: 9px;
+            }
+
+            .batch-table td {
+                padding: 8px 10px;
+                font-size: 11px;
+            }
+
+            .batch-number-cell {
+                font-size: 10px;
+            }
+
+            .footer {
+                font-size: 10px;
+                padding: 12px;
+            }
+
+            .logo {
+                height: 35px !important;
+            }
+        }
+
+        /* Extra small mobile */
+        @media screen and (max-width: 360px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header h1 {
+                font-size: 14px;
+            }
+
+            .product-card-header {
+                font-size: 12px;
+                padding: 6px 8px;
+            }
+
+            .product-info {
+                font-size: 10px;
+                margin-top: 4px;
+            }
+
+            .batch-table th {
+                padding: 6px 8px;
+                font-size: 8px;
+            }
+
+            .batch-table td {
+                padding: 6px 8px;
+                font-size: 10px;
+            }
+
+            .batch-number-cell {
+                font-size: 9px;
             }
 
             .footer {
@@ -222,84 +377,117 @@
                 height: 30px !important;
             }
         }
-
-        @media screen and (max-width: 360px) {
-            table {
-                font-size: 7px;
-            }
-
-            th {
-                font-size: 6px;
-            }
-
-            .footer {
-                font-size: 8px;
-            }
-
-            .logo {
-                height: 25px !important;
-            }
-        }
-
-        /* Gmail and Outlook compatibility */
-        .mso-hide {
-            display: none;
-        }
-
-        /* Prevent auto-scaling */
-        @media screen and (max-device-width: 480px) {
-
-            table,
-            td,
-            th {
-                -webkit-text-size-adjust: none;
-            }
-        }
     </style>
 </head>
 
 <body>
     <div class="container">
         <div class="header">
-            <h1>⏰ PRODUCTS EXPIRING SOON</h1>
+            <h1>⏰ PRODUCT BATCHES EXPIRING SOON</h1>
             <p>{{ now()->format('l, d F Y - H:i') }}</p>
         </div>
 
+        @php
+            $totalProducts = $expiringSoonProductsData->count();
+            $totalBatches = $expiringSoonProductsData->sum(function ($productData) {
+                return $productData['batches']->count();
+            });
+            $totalExpiringSoonStock = $expiringSoonProductsData->sum(function ($productData) {
+                return $productData['total_expiring_stock'];
+            });
+        @endphp
+
         <div class="alert-warning">
             <p><strong>ATTENTION NEEDED!</strong></p>
-            <p>The following <strong>{{ $expiringSoonProducts->count() }} product(s)</strong> will expire within the
-                next 30 days. Please review and take appropriate action:</p>
+            <p>Found <strong>{{ $totalProducts }} product(s)</strong> with <strong>{{ $totalBatches }}
+                    batch(es)</strong> totaling <strong>{{ number_format($totalExpiringSoonStock) }} units</strong> that
+                will expire within the next 30 days. Please review and take appropriate action:</p>
         </div>
 
+        <!-- Desktop Table View -->
         <div class="table-container">
-            <table>
+            <table class="desktop-table">
                 <thead>
                     <tr>
                         <th class="col-code">Code</th>
-                        <th class="col-name">Name</th>
+                        <th class="col-name">Product Name</th>
                         <th class="col-category">Category</th>
+                        <th class="col-batch">Batch Number</th>
                         <th class="col-stock">Stock</th>
                         <th class="col-expiry">Expiry Date</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($expiringSoonProducts as $product)
+                    @foreach ($expiringSoonProductsData as $productData)
                         @php
-                            $expiryDate =
-                                $product->expiry_date instanceof \Carbon\Carbon
-                                    ? $product->expiry_date
-                                    : \Carbon\Carbon::parse($product->expiry_date);
+                            $product = $productData['product'];
+                            $batches = $productData['batches'];
                         @endphp
-                        <tr class="expiring-row">
-                            <td><strong>{{ $product->code }}</strong></td>
-                            <td>{{ Str::limit($product->name, 20) }}</td>
-                            <td>{{ Str::limit($product->category->name, 12) }}</td>
-                            <td>{{ $product->stock }} pcs</td>
-                            <td>{{ $expiryDate->format('d M Y') }}</td>
-                        </tr>
+
+                        @foreach ($batches as $index => $batch)
+                            @php
+                                $expiryDate =
+                                    $batch->expiry_date instanceof \Carbon\Carbon
+                                        ? $batch->expiry_date
+                                        : \Carbon\Carbon::parse($batch->expiry_date);
+                            @endphp
+                            <tr class="batch-row">
+                                @if ($index === 0)
+                                    <td rowspan="{{ $batches->count() }}"><strong>{{ $product->code }}</strong></td>
+                                    <td rowspan="{{ $batches->count() }}">{{ Str::limit($product->name, 25) }}</td>
+                                    <td rowspan="{{ $batches->count() }}">
+                                        {{ Str::limit($product->category->name ?? 'No Category', 15) }}</td>
+                                @endif
+                                <td><strong>{{ $batch->batch_number }}</strong></td>
+                                <td>{{ number_format($batch->quantity) }}</td>
+                                <td><strong>{{ $expiryDate->format('d M Y') }}</strong></td>
+                            </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>
+        </div>
+
+        <!-- Mobile Card View -->
+        <div class="mobile-cards">
+            @foreach ($expiringSoonProductsData as $productData)
+                @php
+                    $product = $productData['product'];
+                    $batches = $productData['batches'];
+                @endphp
+
+                <div class="product-card">
+                    <div class="product-card-header">
+                        <div><strong>{{ $product->code }}</strong> - {{ $product->name }}</div>
+                        <div class="product-info">Category: {{ $product->category->name ?? 'No Category' }}</div>
+                    </div>
+
+                    <table class="batch-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 50%;">Batch Number</th>
+                                <th style="width: 25%;">Stock</th>
+                                <th style="width: 25%;">Expiry</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($batches as $batch)
+                                @php
+                                    $expiryDate =
+                                        $batch->expiry_date instanceof \Carbon\Carbon
+                                            ? $batch->expiry_date
+                                            : \Carbon\Carbon::parse($batch->expiry_date);
+                                @endphp
+                                <tr>
+                                    <td class="batch-number-cell">{{ $batch->batch_number }}</td>
+                                    <td class="stock-cell">{{ number_format($batch->quantity) }}</td>
+                                    <td class="expiry-cell">{{ $expiryDate->format('d M Y') }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endforeach
         </div>
 
         <div class="footer">
@@ -308,7 +496,7 @@
                     alt="{{ config('app.name') }}" class="logo">
             </div>
             <p><strong>Inventory Management Alert</strong></p>
-            <p>This is an automated notification from your inventory management system.</p>
+            <p>This is an automated notification from your batch-based inventory system.</p>
             <p style="margin: 0;"><em>{{ config('app.name') }} Team</em></p>
         </div>
     </div>

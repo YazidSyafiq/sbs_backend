@@ -15,14 +15,18 @@ class ExpiringSoonProductsNotification extends Mailable
     use Queueable, SerializesModels;
 
     public function __construct(
-        public Collection $expiringSoonProducts
+        public Collection $expiringSoonProductsData
     ) {}
 
     public function envelope(): Envelope
     {
-        $count = $this->expiringSoonProducts->count();
+        $productCount = $this->expiringSoonProductsData->count();
+        $batchCount = $this->expiringSoonProductsData->sum(function ($productData) {
+            return $productData['batches']->count();
+        });
+
         return new Envelope(
-            subject: "⏰ WARNING: {$count} Product(s) Expiring Soon",
+            subject: "⏰ WARNING: {$productCount} Product(s) with {$batchCount} Expiring Batch(es)",
         );
     }
 

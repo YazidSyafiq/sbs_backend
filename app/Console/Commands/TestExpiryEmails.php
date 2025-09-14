@@ -4,14 +4,14 @@ namespace App\Console\Commands;
 
 use App\Mail\ExpiredProductsNotification;
 use App\Mail\ExpiringSoonProductsNotification;
-use App\Models\Product;
+use App\Models\ProductBatch;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Mail;
 
 class TestExpiryEmails extends Command
 {
     protected $signature = 'test:expiry-emails {email} {--type=both}';
-    protected $description = 'Test expiry emails separately (--type=expired|expiring|both)';
+    protected $description = 'Test expiry emails separately for batch-based system (--type=expired|expiring|both)';
 
     public function handle()
     {
@@ -19,39 +19,63 @@ class TestExpiryEmails extends Command
         $type = $this->option('type');
 
         if (in_array($type, ['expired', 'both'])) {
-            // Get expired products (daysUntilExpiry < 0)
-            // Untuk expired products
-            $expiredProducts = Product::whereNotNull('expiry_date')
-                ->where('stock', '>', 0)
+            // Get expired batches
+            $expiredBatches = ProductBatch::with(['product.category'])
+                ->whereNotNull('expiry_date')
+                ->where('quantity', '>', 0)
                 ->where('expiry_date', '<', now())
-                ->with(['category'])
+                ->orderBy('expiry_date', 'asc')
                 ->get();
 
-            if ($expiredProducts->count() > 0) {
-                Mail::to($email)->send(new ExpiredProductsNotification($expiredProducts));
-                $this->error("🚨 Expired products email sent to: {$email}");
-                $this->error("Found {$expiredProducts->count()} expired products.");
+            if ($expiredBatches->count() > 0) {
+                // Group by product
+                $expiredProductsData = $expiredBatches->groupBy('product_id')->map(function ($batches, $productId) {
+                    $product = $batches->first()->product;
+                    return [
+                        'product' => $product,
+                        'batches' => $batches,
+                        'total_expired_stock' => $batches->sum('quantity'),
+                        'earliest_expiry' => $batches->min('expiry_date'),
+                    ];
+                });
+
+                Mail::to($email)->send(new ExpiredProductsNotification($expiredProductsData));
+                $this->error("🚨 Expired batches email sent to: {$email}");
+                $this->error("Found {$expiredProductsData->count()} products with expired batches.");
+                $this->error("Total expired batches: {$expiredBatches->count()}");
             } else {
-                $this->info("No expired products found for testing.");
+                $this->info("No expired product batches found for testing.");
             }
         }
 
         if (in_array($type, ['expiring', 'both'])) {
-            // Get products expiring soon (0 <= daysUntilExpiry <= 30)
-            // Untuk expiring soon products
-            $expiringSoonProducts = Product::whereNotNull('expiry_date')
-                ->where('stock', '>', 0)
+            // Get batches expiring soon
+            $expiringSoonBatches = ProductBatch::with(['product.category'])
+                ->whereNotNull('expiry_date')
+                ->where('quantity', '>', 0)
                 ->where('expiry_date', '>=', now())
                 ->where('expiry_date', '<=', now()->addDays(30))
-                ->with(['category'])
+                ->orderBy('expiry_date', 'asc')
                 ->get();
 
-            if ($expiringSoonProducts->count() > 0) {
-                Mail::to($email)->send(new ExpiringSoonProductsNotification($expiringSoonProducts));
-                $this->warn("⏰ Expiring soon products email sent to: {$email}");
-                $this->warn("Found {$expiringSoonProducts->count()} expiring soon products.");
+            if ($expiringSoonBatches->count() > 0) {
+                // Group by product
+                $expiringSoonProductsData = $expiringSoonBatches->groupBy('product_id')->map(function ($batches, $productId) {
+                    $product = $batches->first()->product;
+                    return [
+                        'product' => $product,
+                        'batches' => $batches,
+                        'total_expiring_stock' => $batches->sum('quantity'),
+                        'earliest_expiry' => $batches->min('expiry_date'),
+                    ];
+                });
+
+                Mail::to($email)->send(new ExpiringSoonProductsNotification($expiringSoonProductsData));
+                $this->warn("⏰ Expiring soon batches email sent to: {$email}");
+                $this->warn("Found {$expiringSoonProductsData->count()} products with expiring soon batches.");
+                $this->warn("Total expiring soon batches: {$expiringSoonBatches->count()}");
             } else {
-                $this->info("No expiring soon products found for testing.");
+                $this->info("No expiring soon product batches found for testing.");
             }
         }
 
