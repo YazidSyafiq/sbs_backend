@@ -22,6 +22,76 @@ class AllTransactionController extends Controller
         ];
     }
 
+    /**
+     * Get unique users from all transaction sources
+     */
+    private function getAllTransactionUsers()
+    {
+        $users = collect();
+
+        // Add System users for Income/Expense
+        $users->push((object)[
+            'name' => 'System',
+            'branch_name' => null,
+        ]);
+
+        // Get users from Purchase Products
+        $poUsers = User::whereHas('purchaseProducts', function($query) {
+            $query->whereNotIn('status', ['Draft', 'Cancelled']);
+        })->with('branch')->get();
+
+        foreach ($poUsers as $user) {
+            $users->push((object)[
+                'name' => $user->name,
+                'branch_name' => $user->branch ? $user->branch->name : null,
+            ]);
+        }
+
+        // Get users from Service Purchases - assuming relationship exists
+        try {
+            $serviceUsers = User::whereHas('servicePurchases', function($query) {
+                $query->whereNotIn('status', ['Draft', 'Cancelled']);
+            })->with('branch')->get();
+
+            foreach ($serviceUsers as $user) {
+                $users->push((object)[
+                    'name' => $user->name,
+                    'branch_name' => $user->branch ? $user->branch->name : null,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Ignore if relationship doesn't exist yet
+        }
+
+        // Get users from Supplier Purchases - assuming relationship exists
+        try {
+            $supplierUsers = User::whereHas('purchaseProductSuppliers', function($query) {
+                $query->where('status', '!=', 'Cancelled');
+            })->with('branch')->get();
+
+            foreach ($supplierUsers as $user) {
+                $users->push((object)[
+                    'name' => $user->name,
+                    'branch_name' => $user->branch ? $user->branch->name : null,
+                ]);
+            }
+        } catch (\Exception $e) {
+            // Ignore if relationship doesn't exist yet
+        }
+
+        // Remove duplicates and create options array
+        return $users->unique('name')
+            ->sortBy('name')
+            ->mapWithKeys(function ($user) {
+                $label = $user->name;
+                if ($user->branch_name) {
+                    $label .= ' (' . $user->branch_name . ')';
+                }
+                return [$user->name => $label]; // Value is just the name, label includes branch
+            })
+            ->toArray();
+    }
+
     public function report(Request $request)
     {
         // Get filter parameters
@@ -110,6 +180,18 @@ class AllTransactionController extends Controller
             ];
         });
 
+        // User summary - NEW
+        $userSummary = $transactions->filter(function($transaction) {
+            return $transaction->user &&
+                   $transaction->user !== null;
+        })->groupBy('user')->map(function($items, $userName) {
+            return [
+                'count' => $items->count(),
+                'total_amount' => $items->sum('total_amount'),
+                'profit' => $items->sum('profit'),
+            ];
+        });
+
         // Monthly summary
         $monthlySummary = $transactions->groupBy(function($transaction) {
             return Carbon::parse($transaction->date)->format('Y-m');
@@ -139,6 +221,7 @@ class AllTransactionController extends Controller
             'transactionTypeSummary',
             'paymentStatusSummary',
             'branchSummary',
+            'userSummary',
             'monthlySummary',
             'filterLabels',
             'companyInfo'

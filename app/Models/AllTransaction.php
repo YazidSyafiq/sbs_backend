@@ -88,9 +88,17 @@ class AllTransaction extends Model
             $filteredTransactions = $filteredTransactions->where('branch', $filters['branch']);
         }
 
-        // Filter by user
+        // Filter by user - FIXED
         if (!empty($filters['user'])) {
-            $filteredTransactions = $filteredTransactions->where('user', 'like', '%' . $filters['user'] . '%');
+            $filteredTransactions = $filteredTransactions->filter(function($transaction) use ($filters) {
+                $transactionUser = strtolower($transaction->user ?? '');
+                $filterUser = strtolower($filters['user']);
+
+                // Exact match or contains match
+                return $transactionUser === $filterUser ||
+                       str_contains($transactionUser, $filterUser) ||
+                       str_contains($filterUser, $transactionUser);
+            });
         }
 
         return $filteredTransactions->values()->all();
@@ -126,7 +134,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $income->name;
             $virtualRecord->date = $income->date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = null;
+            $virtualRecord->user = 'System'; // Set default user for Income
             $virtualRecord->status = 'Completed';
             $virtualRecord->payment_status = 'Received';
             $virtualRecord->item_type = 'Income';
@@ -160,7 +168,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $expense->name;
             $virtualRecord->date = $expense->date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = null;
+            $virtualRecord->user = 'System'; // Set default user for Expense
             $virtualRecord->status = 'Completed';
             $virtualRecord->payment_status = 'Paid';
             $virtualRecord->item_type = 'Expense';
@@ -201,8 +209,8 @@ class AllTransaction extends Model
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
                 $virtualRecord->date = $po->order_date;
-                $virtualRecord->branch = $po->user->branch->name ?? 'No Branch';
-                $virtualRecord->user = $po->user->name ?? 'Unknown User';
+                $virtualRecord->branch = $po->user->branch->name ?? null;
+                $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
                 $virtualRecord->status = $po->status;
                 $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
                 $virtualRecord->item_type = 'Product';
@@ -244,8 +252,8 @@ class AllTransaction extends Model
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
                 $virtualRecord->date = $po->order_date;
-                $virtualRecord->branch = $po->user->branch->name ?? 'No Branch';
-                $virtualRecord->user = $po->user->name ?? 'Unknown User';
+                $virtualRecord->branch = $po->user->branch->name ?? null;
+                $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
                 $virtualRecord->status = $po->status;
                 $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
                 $virtualRecord->item_type = 'Service';
@@ -258,7 +266,7 @@ class AllTransaction extends Model
                 $virtualRecord->cost_price = $item->cost_price ?? 0;
                 $virtualRecord->profit = $profit;
                 $virtualRecord->profit_margin = $profitMargin;
-                $virtualRecord->supplier_technician = $item->technician->name ?? 'Not Assigned';
+                $virtualRecord->supplier_technician = $item->technician->name ?? null;
                 $virtualRecord->description = $po->notes;
                 $virtualRecord->exists = true;
 
@@ -284,7 +292,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $po->name;
             $virtualRecord->date = $po->order_date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = $po->user->name ?? 'Unknown User';
+            $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
             $virtualRecord->status = $po->status;
             $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
             $virtualRecord->item_type = 'Supplier Purchase';
@@ -297,7 +305,7 @@ class AllTransaction extends Model
             $virtualRecord->cost_price = $cost;
             $virtualRecord->profit = -$cost; // Negative karena ini cost
             $virtualRecord->profit_margin = $cost > 0 ? -100 : 0;
-            $virtualRecord->supplier_technician = $po->supplier->name ?? 'Unknown Supplier';
+            $virtualRecord->supplier_technician = $po->supplier->name ?? null;
             $virtualRecord->description = $po->notes;
             $virtualRecord->exists = true;
 

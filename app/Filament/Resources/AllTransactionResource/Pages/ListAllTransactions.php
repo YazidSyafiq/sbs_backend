@@ -45,6 +45,68 @@ class ListAllTransactions extends ListRecords
         return $widgets;
     }
 
+    /**
+     * Get unique users from all transaction sources
+     */
+    private function getAllTransactionUsers()
+    {
+        $users = collect();
+
+        // Add System users for Income/Expense
+        $users->push((object)[
+            'name' => 'System',
+            'branch_name' => null,
+        ]);
+
+        // Get users from Purchase Products
+        $poUsers = User::whereHas('purchaseProducts', function($query) {
+            $query->whereNotIn('status', ['Draft', 'Cancelled']);
+        })->with('branch')->get();
+
+        foreach ($poUsers as $user) {
+            $users->push((object)[
+                'name' => $user->name,
+                'branch_name' => $user->branch ? $user->branch->name : null,
+            ]);
+        }
+
+        // Get users from Service Purchases
+        $serviceUsers = User::whereHas('servicePurchases', function($query) {
+            $query->whereNotIn('status', ['Draft', 'Cancelled']);
+        })->with('branch')->get();
+
+        foreach ($serviceUsers as $user) {
+            $users->push((object)[
+                'name' => $user->name,
+                'branch_name' => $user->branch ? $user->branch->name : null,
+            ]);
+        }
+
+        // Get users from Supplier Purchases
+        $supplierUsers = User::whereHas('purchaseProductSuppliers', function($query) {
+            $query->where('status', '!=', 'Cancelled');
+        })->with('branch')->get();
+
+        foreach ($supplierUsers as $user) {
+            $users->push((object)[
+                'name' => $user->name,
+                'branch_name' => $user->branch ? $user->branch->name : null,
+            ]);
+        }
+
+        // Remove duplicates and create options array
+        return $users->unique('name')
+            ->sortBy('name')
+            ->mapWithKeys(function ($user) {
+                $label = $user->name;
+                if ($user->branch_name) {
+                    $label .= ' (' . $user->branch_name . ')';
+                }
+                return [$user->name => $label]; // Value is just the name, label includes branch
+            })
+            ->toArray();
+    }
+
     protected function getHeaderActions(): array
     {
         return [
@@ -110,16 +172,7 @@ class ListAllTransactions extends ListRecords
                                 ->placeholder('All Branches'),
                             Select::make('user')
                                 ->label('Created By User')
-                                ->options(function () {
-                                    return User::with('branch')
-                                        ->select('id', 'name', 'branch_id')
-                                        ->get()
-                                        ->mapWithKeys(function ($user) {
-                                            $branchName = $user->branch ? ' - ' . $user->branch->name : '';
-                                            return [$user->name => $user->name . $branchName];
-                                        })
-                                        ->toArray();
-                                })
+                                ->options(fn () => $this->getAllTransactionUsers())
                                 ->searchable()
                                 ->columnSpanFull()
                                 ->placeholder('All Users'),
@@ -235,17 +288,8 @@ class ListAllTransactions extends ListRecords
 
                             Select::make('user')
                                 ->label('Created By User')
-                                ->hint('Filter transactions by who created them (useful for audit trail & performance tracking)')
-                                ->options(function () {
-                                    return User::with('branch')
-                                        ->select('id', 'name', 'branch_id')
-                                        ->get()
-                                        ->mapWithKeys(function ($user) {
-                                            $branchName = $user->branch ? ' - ' . $user->branch->name : '';
-                                            return [$user->name => $user->name . $branchName];
-                                        })
-                                        ->toArray();
-                                })
+                                ->hint('Filter transactions by who created them')
+                                ->options(fn () => $this->getAllTransactionUsers())
                                 ->columnSpanFull()
                                 ->searchable()
                                 ->placeholder('All Users'),

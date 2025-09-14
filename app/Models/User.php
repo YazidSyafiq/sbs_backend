@@ -13,6 +13,7 @@ use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class User extends Authenticatable implements FilamentUser, HasAvatar
 {
@@ -85,5 +86,20 @@ class User extends Authenticatable implements FilamentUser, HasAvatar
                 $user->email_verified_at = now();
             }
         });
+    }
+
+    public function purchaseProducts()
+    {
+        return $this->hasMany(PurchaseProduct::class);
+    }
+
+    public function servicePurchases()
+    {
+        return $this->hasMany(ServicePurchase::class);
+    }
+
+    public function purchaseProductSuppliers()
+    {
+        return $this->hasMany(PurchaseProductSupplier::class);
     }
 }
