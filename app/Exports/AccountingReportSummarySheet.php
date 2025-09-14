@@ -56,19 +56,23 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['COST BREAKDOWN'];
         $data[] = ['Category', 'Amount', 'Percentage'];
         $data[] = ['Operating Expenses', 'Rp ' . number_format($costBreakdown->expense_cost, 0, ',', '.'), $costBreakdown->expense_percentage . '%'];
-        $data[] = ['Product Costs', 'Rp ' . number_format($costBreakdown->product_cost, 0, ',', '.'), $costBreakdown->product_percentage . '%'];
+        $data[] = ['Product Costs (FIFO COGS)', 'Rp ' . number_format($costBreakdown->product_cost, 0, ',', '.'), $costBreakdown->product_percentage . '%'];
         $data[] = ['Service Costs', 'Rp ' . number_format($costBreakdown->service_cost, 0, ',', '.'), $costBreakdown->service_percentage . '%'];
-        $data[] = ['Supplier Costs', 'Rp ' . number_format($costBreakdown->supplier_cost, 0, ',', '.'), $costBreakdown->supplier_percentage . '%'];
+        $data[] = ['Supplier Purchase Costs', 'Rp ' . number_format($costBreakdown->supplier_cost, 0, ',', '.'), $costBreakdown->supplier_percentage . '%'];
         $data[] = ['Total Cost', 'Rp ' . number_format($costBreakdown->total_cost, 0, ',', '.'), '100%'];
         $data[] = [''];
 
-        // Outstanding Balances
+        // Outstanding Balances - FIXED VERSION
         $debtAnalysis = AccountingReport::getDebtAnalysis($this->filters);
         $data[] = ['OUTSTANDING BALANCES'];
         $data[] = [''];
         $data[] = ['Receivables from Customers', 'Rp ' . number_format($debtAnalysis->receivables_from_customers, 0, ',', '.')];
         $data[] = ['Debt to Suppliers', 'Rp ' . number_format($debtAnalysis->debt_to_suppliers, 0, ',', '.')];
-        $data[] = ['Net Outstanding Balance', 'Rp ' . number_format($debtAnalysis->net_debt_position, 0, ',', '.')];
+
+        // Format net position dengan tanda yang benar
+        $netPositionFormatted = ($debtAnalysis->net_debt_position >= 0 ? '+' : '') .
+                               'Rp ' . number_format(abs($debtAnalysis->net_debt_position), 0, ',', '.');
+        $data[] = ['Net Position', $netPositionFormatted];
         $data[] = [''];
 
         // Key Performance Indicators
@@ -78,9 +82,30 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['Revenue per Source (Avg)', 'Rp ' . number_format($overview->total_revenue / 3, 0, ',', '.')];
         $data[] = ['Cost per Category (Avg)', 'Rp ' . number_format($overview->total_cost / 4, 0, ',', '.')];
 
-        // Net Position Analysis
-        $netPositionStatus = $debtAnalysis->net_debt_position > 0 ? 'We owe more than we are owed' : 'We are owed more than we owe';
-        $data[] = ['Net Debt Position Status', $netPositionStatus];
+        // Net Position Analysis - FIXED
+        $netPositionStatus = $debtAnalysis->net_debt_position >= 0
+            ? 'We\'re owed more than we owe (Good position)'
+            : 'We owe more than we\'re owed (Requires attention)';
+        $data[] = ['Net Position Status', $netPositionStatus];
+        $data[] = [''];
+
+        // ProductBatch Summary
+        $data[] = ['INVENTORY SUMMARY (ProductBatch)'];
+        $data[] = [''];
+
+        // Get current inventory status
+        $currentInventoryValue = \App\Models\ProductBatch::where('quantity', '>', 0)
+            ->selectRaw('SUM(quantity * cost_price) as total_value')
+            ->first()->total_value ?? 0;
+
+        $totalBatches = \App\Models\ProductBatch::where('quantity', '>', 0)->count();
+        $totalProducts = \App\Models\ProductBatch::where('quantity', '>', 0)
+            ->distinct('product_id')
+            ->count('product_id');
+
+        $data[] = ['Current Inventory Value', 'Rp ' . number_format($currentInventoryValue, 0, ',', '.')];
+        $data[] = ['Active Product Batches', number_format($totalBatches)];
+        $data[] = ['Products in Stock', number_format($totalProducts)];
 
         return $data;
     }
@@ -118,7 +143,7 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
     public function columnWidths(): array
     {
         return [
-            'A' => 30,
+            'A' => 35,
             'B' => 25,
             'C' => 15,
         ];

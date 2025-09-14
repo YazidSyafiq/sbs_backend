@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\AccountingReportResource\Widgets;
 
 use App\Models\AccountingReport;
+use App\Models\ProductBatch;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -34,19 +35,24 @@ class AccountingProductSummary extends BaseWidget
         $bestProduct = $productSales->sortByDesc('total_profit')->first();
         $worstProduct = $productSales->sortBy('total_profit')->first();
 
+        // Get current inventory status
+        $currentInventoryValue = ProductBatch::where('quantity', '>', 0)
+            ->selectRaw('SUM(quantity * cost_price) as total_value')
+            ->first()->total_value ?? 0;
+
         return [
-            Stat::make('Total Products Performance', $totalProducts . ' different products')
-                ->description('Across ' . number_format($totalOrders) . ' orders • ' . number_format($totalQuantitySold) . ' units total')
+            Stat::make('Product Sales Performance', $totalProducts . ' different products')
+                ->description('Across ' . number_format($totalOrders) . ' orders • ' . number_format($totalQuantitySold) . ' units sold')
                 ->descriptionIcon('heroicon-m-cube')
                 ->color('blue'),
 
-            Stat::make('Products Revenue Summary', 'Rp ' . number_format($totalRevenue, 0, ',', '.'))
-                ->description('Cost: Rp ' . number_format($totalCost, 0, ',', '.') . ' • Profit: Rp ' . number_format($totalProfit, 0, ',', '.'))
+            Stat::make('Products Revenue & COGS', 'Rp ' . number_format($totalRevenue, 0, ',', '.'))
+                ->description('COGS: Rp ' . number_format($totalCost, 0, ',', '.') . ' • Profit: Rp ' . number_format($totalProfit, 0, ',', '.'))
                 ->descriptionIcon('heroicon-m-currency-dollar')
                 ->color($totalProfit > 0 ? 'success' : ($totalProfit < 0 ? 'danger' : 'gray')),
 
-            Stat::make('Products Profit Analysis', $avgProfitMargin . '% avg margin')
-                ->description('Best: ' . ($bestProduct ? $bestProduct->product_name . ' (' . $bestProduct->profit_margin . '%)' : 'N/A'))
+            Stat::make('Inventory & Profit Analysis', $avgProfitMargin . '% avg margin')
+                ->description('Current Inventory: Rp ' . number_format($currentInventoryValue, 0, ',', '.') . ' • Best: ' . ($bestProduct ? $bestProduct->product_name . ' (' . $bestProduct->profit_margin . '%)' : 'N/A'))
                 ->descriptionIcon('heroicon-m-chart-bar')
                 ->color($avgProfitMargin > 0 ? 'success' : ($avgProfitMargin < 0 ? 'danger' : 'gray')),
         ];
@@ -59,11 +65,11 @@ class AccountingProductSummary extends BaseWidget
 
     public function getHeading(): ?string
     {
-        return 'Products Performance Summary';
+        return 'Products Performance Summary (FIFO-Based)';
     }
 
     public function getDescription(): ?string
     {
-        return 'Overview of all product sales performance metrics';
+        return 'Product sales analysis based on FIFO cost calculation from ProductBatch system';
     }
 }

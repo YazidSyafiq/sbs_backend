@@ -13,9 +13,26 @@ class AccountingDebtAnalysis extends BaseWidget
         $filters = session('accounting_filters', []);
         $debtAnalysis = AccountingReport::getDebtAnalysis($filters);
 
+        // Tentukan status dan warna untuk Net Position
+        $netPositionStatus = $debtAnalysis->net_debt_position >= 0
+            ? 'We\'re owed more than we owe'
+            : 'We owe more than we\'re owed';
+
+        $netPositionIcon = $debtAnalysis->net_debt_position >= 0
+            ? 'heroicon-m-arrow-up'
+            : 'heroicon-m-arrow-down';
+
+        $netPositionColor = $debtAnalysis->net_debt_position >= 0
+            ? 'success'
+            : 'danger';
+
+        // Format angka net position dengan tanda + atau -
+        $netPositionFormatted = ($debtAnalysis->net_debt_position >= 0 ? '+' : '') .
+                               'Rp ' . number_format(abs($debtAnalysis->net_debt_position), 0, ',', '.');
+
         return [
             Stat::make('Receivables from Customers', 'Rp ' . number_format($debtAnalysis->receivables_from_customers, 0, ',', '.'))
-                ->description('Outstanding payments from customers')
+                ->description('Outstanding payments from customers (Products + Services)')
                 ->descriptionIcon('heroicon-m-banknotes')
                 ->color('info'),
 
@@ -24,10 +41,10 @@ class AccountingDebtAnalysis extends BaseWidget
                 ->descriptionIcon('heroicon-m-credit-card')
                 ->color('warning'),
 
-            Stat::make('Net Debt Position', 'Rp ' . number_format($debtAnalysis->net_debt_position, 0, ',', '.'))
-                ->description($debtAnalysis->net_debt_position > 0 ? 'We owe more than we\'re owed' : 'We\'re owed more than we owe')
-                ->descriptionIcon($debtAnalysis->net_debt_position > 0 ? 'heroicon-m-arrow-down' : 'heroicon-m-arrow-up')
-                ->color($debtAnalysis->net_debt_position > 0 ? 'danger' : 'success'),
+            Stat::make('Net Position', $netPositionFormatted)
+                ->description($netPositionStatus)
+                ->descriptionIcon($netPositionIcon)
+                ->color($netPositionColor),
         ];
     }
 
@@ -39,5 +56,10 @@ class AccountingDebtAnalysis extends BaseWidget
     public function getHeading(): ?string
     {
         return 'Debt & Receivables Analysis';
+    }
+
+    public function getDescription(): ?string
+    {
+        return 'Analysis of outstanding payments - what customers owe us vs what we owe suppliers';
     }
 }

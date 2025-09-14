@@ -16,6 +16,20 @@ class AccountingOutstandingBalanceChart extends ChartWidget
         $filters = session('accounting_filters', []);
         $debtAnalysis = AccountingReport::getDebtAnalysis($filters);
 
+        // Tentukan warna berdasarkan net position yang sudah diperbaiki
+        $netPositionColor = $debtAnalysis->net_debt_position >= 0
+            ? 'rgba(34, 197, 94, 0.8)'    // Hijau jika positif (bagus)
+            : 'rgba(239, 68, 68, 0.8)';   // Merah jika negatif (buruk)
+
+        $netPositionBorderColor = $debtAnalysis->net_debt_position >= 0
+            ? 'rgb(34, 197, 94)'
+            : 'rgb(239, 68, 68)';
+
+        // Label untuk net position
+        $netPositionLabel = $debtAnalysis->net_debt_position >= 0
+            ? 'Net Credit Position'
+            : 'Net Debt Position';
+
         return [
             'datasets' => [
                 [
@@ -26,14 +40,14 @@ class AccountingOutstandingBalanceChart extends ChartWidget
                         abs($debtAnalysis->net_debt_position) / 1000000,
                     ],
                     'backgroundColor' => [
-                        'rgba(59, 130, 246, 0.8)',  // Receivables - Blue
+                        'rgba(59, 130, 246, 0.8)',  // Receivables - Biru
                         'rgba(245, 158, 11, 0.8)',  // Debt to Suppliers - Orange
-                        $debtAnalysis->net_debt_position > 0 ? 'rgba(239, 68, 68, 0.8)' : 'rgba(34, 197, 94, 0.8)', // Net position
+                        $netPositionColor,           // Net position - Dynamic color
                     ],
                     'borderColor' => [
                         'rgb(59, 130, 246)',
                         'rgb(245, 158, 11)',
-                        $debtAnalysis->net_debt_position > 0 ? 'rgb(239, 68, 68)' : 'rgb(34, 197, 94)',
+                        $netPositionBorderColor,     // Net position - Dynamic border
                     ],
                     'borderWidth' => 2,
                     'borderRadius' => 4,
@@ -43,7 +57,7 @@ class AccountingOutstandingBalanceChart extends ChartWidget
             'labels' => [
                 'Receivables (We\'re Owed)',
                 'Payables (We Owe)',
-                $debtAnalysis->net_debt_position > 0 ? 'Net Debt' : 'Net Credit'
+                $netPositionLabel
             ],
         ];
     }
@@ -119,6 +133,6 @@ class AccountingOutstandingBalanceChart extends ChartWidget
 
     public function getDescription(): ?string
     {
-        return 'Outstanding receivables and payables - money still owed to/from us';
+        return 'Outstanding receivables and payables - positive net position means we\'re owed more than we owe';
     }
 }

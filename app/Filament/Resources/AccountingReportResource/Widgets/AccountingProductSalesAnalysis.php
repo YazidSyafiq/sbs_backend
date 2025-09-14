@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\AccountingReportResource\Widgets;
 
 use App\Models\AccountingReport;
+use App\Models\ProductBatch;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 
@@ -26,8 +27,22 @@ class AccountingProductSalesAnalysis extends BaseWidget
             ];
         }
 
-        // Show all products (no limit) but use pagination-friendly approach
+        // Show all products with current batch info
         foreach ($productSales as $product) {
+            // Get current inventory for this product
+            $currentBatches = ProductBatch::where('product_id', $product->product_id)
+                ->where('quantity', '>', 0)
+                ->count();
+
+            $currentStock = ProductBatch::where('product_id', $product->product_id)
+                ->where('quantity', '>', 0)
+                ->sum('quantity');
+
+            $currentInventoryValue = ProductBatch::where('product_id', $product->product_id)
+                ->where('quantity', '>', 0)
+                ->selectRaw('SUM(quantity * cost_price) as total_value')
+                ->first()->total_value ?? 0;
+
             // Format profit dengan warna dan tanda
             $profitText = $product->total_profit >= 0 ? '+' : '';
             $profitText .= 'Rp ' . number_format($product->total_profit, 0, ',', '.');
@@ -47,14 +62,16 @@ class AccountingProductSalesAnalysis extends BaseWidget
             )
                 ->description(
                     'Revenue: Rp ' . number_format($product->total_revenue, 0, ',', '.') . ' • ' .
-                    'Cost: Rp ' . number_format($product->total_cost, 0, ',', '.') . ' • ' .
-                    'Profit: ' . $profitText . ' (' . $product->profit_margin . '%)'
+                    'COGS: Rp ' . number_format($product->total_cost, 0, ',', '.') . ' • ' .
+                    'Profit: ' . $profitText . ' (' . $product->profit_margin . '%)' . ' • ' .
+                    'Current: ' . number_format($currentStock) . ' units in ' . $currentBatches . ' batches • ' .
+                    'Value: Rp ' . number_format($currentInventoryValue, 0, ',', '.')
                 )
                 ->descriptionIcon('heroicon-m-cube')
                 ->color($color)
                 ->extraAttributes([
                     'class' => 'product-stat-card',
-                    'style' => 'min-height: 120px;'
+                    'style' => 'min-height: 140px;'
                 ]);
         }
 
@@ -63,12 +80,12 @@ class AccountingProductSalesAnalysis extends BaseWidget
 
     protected function getColumns(): int
     {
-        return 2; // 2 columns for better readability
+        return 2;
     }
 
     public function getHeading(): ?string
     {
-        return 'Individual Product Performance';
+        return 'Individual Product Performance (FIFO-Based)';
     }
 
     public function getDescription(): ?string
@@ -84,8 +101,14 @@ class AccountingProductSalesAnalysis extends BaseWidget
         $totalRevenue = $productSales->sum('total_revenue');
         $totalProfit = $productSales->sum('total_profit');
 
-        return 'Detailed analysis of ' . $totalProducts . ' products • Total Revenue: Rp ' .
+        // Get current inventory summary
+        $currentInventoryValue = ProductBatch::where('quantity', '>', 0)
+            ->selectRaw('SUM(quantity * cost_price) as total_value')
+            ->first()->total_value ?? 0;
+
+        return 'Analysis of ' . $totalProducts . ' products with FIFO costing • Total Revenue: Rp ' .
                number_format($totalRevenue, 0, ',', '.') . ' • Total Profit: Rp ' .
-               number_format($totalProfit, 0, ',', '.');
+               number_format($totalProfit, 0, ',', '.') . ' • Current Inventory: Rp ' .
+               number_format($currentInventoryValue, 0, ',', '.');
     }
 }

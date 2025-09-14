@@ -7,6 +7,7 @@ use App\Models\Expense;
 use App\Models\PurchaseProduct;
 use App\Models\ServicePurchase;
 use App\Models\PurchaseProductSupplier;
+use App\Models\ProductBatch;
 use App\Models\Product;
 use App\Models\Service;
 use Illuminate\Database\Eloquent\Model;
@@ -105,23 +106,6 @@ class AccountingReport extends Model
     }
 
     /**
-     * Helper method to apply filters to any query
-     */
-    public static function applyFiltersToQuery($query, $filters = [])
-    {
-        // Date filters
-        if (!empty($filters['date_from'])) {
-            $query->whereDate('date', '>=', $filters['date_from']);
-        }
-
-        if (!empty($filters['date_until'])) {
-            $query->whereDate('date', '<=', $filters['date_until']);
-        }
-
-        return $query;
-    }
-
-    /**
      * Get comprehensive accounting overview
      */
     public static function getAccountingOverview($filters = [])
@@ -138,7 +122,7 @@ class AccountingReport extends Model
         // Total Revenue dari berbagai sumber
         $incomeRevenue = Income::whereBetween('date', [$dateFrom, $dateTo])->sum('income_amount');
 
-        // Revenue dari PO Products yang sudah paid
+        // Revenue dari PO Products yang sudah paid (menggunakan cost analysis dari items)
         $productRevenue = PurchaseProduct::with('items')
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'paid')
@@ -161,7 +145,7 @@ class AccountingReport extends Model
         // Total Cost dari berbagai sumber
         $expenseCost = Expense::whereBetween('date', [$dateFrom, $dateTo])->sum('expense_amount');
 
-        // Cost dari PO Products (supplier price)
+        // Cost dari PO Products (menggunakan cost analysis dari items)
         $productCost = PurchaseProduct::with('items')
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'paid')
@@ -169,7 +153,8 @@ class AccountingReport extends Model
             ->get()
             ->flatMap->items
             ->sum(function($item) {
-                return $item->supplier_price * $item->quantity;
+                // Menggunakan cost_price yang sudah dihitung berdasarkan FIFO
+                return ($item->cost_price ?? 0) * $item->quantity;
             });
 
         // Cost dari Service Purchase (technician cost)
@@ -181,8 +166,8 @@ class AccountingReport extends Model
             ->flatMap->items
             ->sum('cost_price');
 
-        // Cost dari Supplier PO
-        $supplierCost = PurchaseProductSupplier::whereNotIn('status', ['Draft', 'Cancelled'])
+        // Cost dari Supplier PO (purchase dari supplier)
+        $supplierCost = PurchaseProductSupplier::whereNotIn('status', ['Cancelled'])
             ->where('status_paid', 'paid')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
@@ -210,23 +195,35 @@ class AccountingReport extends Model
     }
 
     /**
-     * Get debt analysis
+     * Get debt analysis - FIXED VERSION
      */
     public static function getDebtAnalysis($filters = [])
     {
-        // Outstanding dari PO Products
+        // Default to last 12 months if no filters applied to date range
+        if (empty($filters['date_from']) && empty($filters['date_until'])) {
+            $dateFrom = Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
+            $dateTo = Carbon::now()->endOfMonth()->toDateString();
+        } else {
+            $dateFrom = !empty($filters['date_from']) ? $filters['date_from'] : Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
+            $dateTo = !empty($filters['date_until']) ? $filters['date_until'] : Carbon::now()->endOfMonth()->toDateString();
+        }
+
+        // Outstanding dari PO Products (yang belum bayar) - Customer berhutang ke kita
         $productOutstanding = PurchaseProduct::whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'unpaid')
+            ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Outstanding dari Service Purchase
+        // Outstanding dari Service Purchase (yang belum bayar) - Customer berhutang ke kita
         $serviceOutstanding = ServicePurchase::whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'unpaid')
+            ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Outstanding dari Supplier PO
-        $supplierOutstanding = PurchaseProductSupplier::whereNotIn('status', ['Draft', 'Cancelled'])
+        // Outstanding dari Supplier PO (yang belum bayar) - Kita berhutang ke supplier
+        $supplierOutstanding = PurchaseProductSupplier::whereNotIn('status', ['Cancelled'])
             ->where('status_paid', 'unpaid')
+            ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
         // Debt to suppliers (yang harus dibayar ke supplier)
@@ -235,13 +232,16 @@ class AccountingReport extends Model
         // Receivables (yang harus diterima dari customer)
         $receivables = $productOutstanding + $serviceOutstanding;
 
-        $netDebt = $debtToSuppliers - $receivables;
+        // PERBAIKAN: Receivables - Debt = Net Position
+        // Positif = kita akan terima lebih banyak dari customer daripada yang harus bayar ke supplier (GOOD)
+        // Negatif = kita harus bayar ke supplier lebih banyak daripada yang akan diterima dari customer (BAD)
+        $netPosition = $receivables - $debtToSuppliers;
 
         return (object)[
             'total_outstanding' => $productOutstanding + $serviceOutstanding + $supplierOutstanding,
-            'receivables_from_customers' => $receivables,
-            'debt_to_suppliers' => $debtToSuppliers,
-            'net_debt_position' => $netDebt,
+            'receivables_from_customers' => $receivables, // Yang akan diterima dari customer
+            'debt_to_suppliers' => $debtToSuppliers, // Yang harus dibayar ke supplier
+            'net_debt_position' => $netPosition, // FIXED: Positif = bagus, Negatif = buruk
             'product_outstanding' => $productOutstanding,
             'service_outstanding' => $serviceOutstanding,
             'supplier_outstanding' => $supplierOutstanding,
@@ -249,7 +249,7 @@ class AccountingReport extends Model
     }
 
     /**
-     * Get monthly profit trends - FIXED VERSION
+     * Get monthly profit trends
      */
     public static function getMonthlyProfitTrends($filters = [])
     {
@@ -312,7 +312,7 @@ class AccountingReport extends Model
             $endDate = Carbon::now()->endOfMonth();
         }
 
-        // Generate monthly data - ALWAYS include all months in range
+        // Generate monthly data
         $results = collect();
         $current = $startDate->copy();
 
@@ -381,7 +381,7 @@ class AccountingReport extends Model
     }
 
     /**
-     * Get detailed product sales analysis
+     * Get detailed product sales analysis berdasarkan ProductBatch
      */
     public static function getProductSalesAnalysis($filters = [])
     {
@@ -394,7 +394,7 @@ class AccountingReport extends Model
             $dateTo = !empty($filters['date_until']) ? $filters['date_until'] : Carbon::now()->endOfMonth()->toDateString();
         }
 
-        // Get all product sales dari PurchaseProduct yang sudah paid
+        // Get product sales dari PurchaseProduct yang sudah paid dengan cost analysis
         $productSales = DB::table('purchase_products')
             ->join('purchase_product_items', 'purchase_products.id', '=', 'purchase_product_items.purchase_product_id')
             ->join('products', 'purchase_product_items.product_id', '=', 'products.id')
@@ -408,8 +408,8 @@ class AccountingReport extends Model
                 'products.code as product_code',
                 DB::raw('SUM(purchase_product_items.quantity) as total_quantity_sold'),
                 DB::raw('SUM(purchase_product_items.total_price) as total_revenue'),
-                DB::raw('SUM(purchase_product_items.supplier_price * purchase_product_items.quantity) as total_cost'),
-                DB::raw('SUM(purchase_product_items.total_price) - SUM(purchase_product_items.supplier_price * purchase_product_items.quantity) as total_profit'),
+                DB::raw('SUM(COALESCE(purchase_product_items.cost_price, 0) * purchase_product_items.quantity) as total_cost'),
+                DB::raw('SUM(purchase_product_items.total_price) - SUM(COALESCE(purchase_product_items.cost_price, 0) * purchase_product_items.quantity) as total_profit'),
                 DB::raw('COUNT(DISTINCT purchase_products.id) as total_orders')
             )
             ->groupBy('products.id', 'products.name', 'products.code')
@@ -448,7 +448,7 @@ class AccountingReport extends Model
             $dateTo = !empty($filters['date_until']) ? $filters['date_until'] : Carbon::now()->endOfMonth()->toDateString();
         }
 
-        // Get all service sales dari ServicePurchase yang sudah paid
+        // Get service sales dari ServicePurchase yang sudah paid
         $serviceSales = DB::table('service_purchases')
             ->join('service_purchase_items', 'service_purchases.id', '=', 'service_purchase_items.service_purchase_id')
             ->join('services', 'service_purchase_items.service_id', '=', 'services.id')
@@ -463,8 +463,8 @@ class AccountingReport extends Model
                 'services.code as service_code',
                 DB::raw('COUNT(service_purchase_items.id) as total_service_count'),
                 DB::raw('SUM(service_purchase_items.selling_price) as total_revenue'),
-                DB::raw('SUM(service_purchase_items.cost_price) as total_technician_cost'),
-                DB::raw('SUM(service_purchase_items.selling_price) - SUM(service_purchase_items.cost_price) as total_profit'),
+                DB::raw('SUM(COALESCE(service_purchase_items.cost_price, 0)) as total_technician_cost'),
+                DB::raw('SUM(service_purchase_items.selling_price) - SUM(COALESCE(service_purchase_items.cost_price, 0)) as total_profit'),
                 DB::raw('COUNT(DISTINCT service_purchases.id) as total_orders'),
                 DB::raw('COUNT(DISTINCT service_purchase_items.technician_id) as total_technicians_involved')
             )
@@ -490,202 +490,6 @@ class AccountingReport extends Model
                 'average_service_price' => $item->total_service_count > 0 ? round($item->total_revenue / $item->total_service_count, 2) : 0,
             ];
         });
-    }
-
-    /**
-     * Get comprehensive transaction details for export
-     */
-    public static function getTransactionDetailsForExport($filters = [])
-    {
-        // Default to last 12 months if no filters
-        if (empty($filters['date_from']) && empty($filters['date_until'])) {
-            $dateFrom = Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
-            $dateTo = Carbon::now()->endOfMonth()->toDateString();
-        } else {
-            $dateFrom = !empty($filters['date_from']) ? $filters['date_from'] : Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
-            $dateTo = !empty($filters['date_until']) ? $filters['date_until'] : Carbon::now()->endOfMonth()->toDateString();
-        }
-
-        $transactions = collect();
-
-        // 1. Income transactions
-        $incomes = Income::whereBetween('date', [$dateFrom, $dateTo])
-            ->orderBy('date', 'desc')
-            ->get();
-
-        foreach ($incomes as $income) {
-            $transactions->push([
-                'transaction_type' => 'Income',
-                'transaction_id' => $income->id,
-                'po_number' => null,
-                'transaction_name' => $income->name,
-                'date' => $income->date,
-                'branch' => null,
-                'user' => null,
-                'status' => 'Completed',
-                'payment_status' => 'Paid',
-                'item_type' => 'Income',
-                'item_name' => $income->name,
-                'item_code' => null,
-                'category' => 'Income',
-                'quantity' => 1,
-                'unit_price' => $income->income_amount,
-                'total_price' => $income->income_amount,
-                'cost_price' => 0,
-                'profit' => $income->income_amount,
-                'profit_margin' => 100,
-                'supplier_technician' => null,
-                'description' => $income->description,
-            ]);
-        }
-
-        // 2. Expense transactions
-        $expenses = Expense::whereBetween('date', [$dateFrom, $dateTo])
-            ->orderBy('date', 'desc')
-            ->get();
-
-        foreach ($expenses as $expense) {
-            $transactions->push([
-                'transaction_type' => 'Expense',
-                'transaction_id' => $expense->id,
-                'po_number' => null,
-                'transaction_name' => $expense->name,
-                'date' => $expense->date,
-                'branch' => null,
-                'user' => null,
-                'status' => 'Completed',
-                'payment_status' => 'Paid',
-                'item_type' => 'Expense',
-                'item_name' => $expense->name,
-                'item_code' => null,
-                'category' => 'Expense',
-                'quantity' => 1,
-                'unit_price' => -$expense->expense_amount,
-                'total_price' => -$expense->expense_amount,
-                'cost_price' => $expense->expense_amount,
-                'profit' => -$expense->expense_amount,
-                'profit_margin' => -100,
-                'supplier_technician' => null,
-                'description' => $expense->description,
-            ]);
-        }
-
-        // 3. PO Product transactions (dengan detail items)
-        $poProducts = PurchaseProduct::with(['items.product.category', 'user.branch'])
-            ->whereNotIn('status', ['Draft', 'Cancelled'])
-            ->whereBetween('order_date', [$dateFrom, $dateTo])
-            ->orderBy('order_date', 'desc')
-            ->get();
-
-        foreach ($poProducts as $po) {
-            foreach ($po->items as $item) {
-                $revenue = $po->status_paid === 'paid' ? $item->total_price : 0;
-                $cost = $po->status_paid === 'paid' ? ($item->supplier_price * $item->quantity) : 0;
-                $profit = $revenue - $cost;
-                $profitMargin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
-
-                $transactions->push([
-                    'transaction_type' => 'PO Product',
-                    'transaction_id' => $po->id,
-                    'po_number' => $po->po_number,
-                    'transaction_name' => $po->name,
-                    'date' => $po->order_date,
-                    'branch' => $po->user->branch->name ?? 'No Branch',
-                    'user' => $po->user->name ?? 'Unknown User',
-                    'status' => $po->status,
-                    'payment_status' => ucfirst($po->status_paid ?? 'Pending'),
-                    'item_type' => 'Product',
-                    'item_name' => $item->product->name ?? 'Unknown Product',
-                    'item_code' => $item->product->code ?? 'N/A',
-                    'category' => $item->product->category->name ?? 'No Category',
-                    'quantity' => $item->quantity,
-                    'unit_price' => $item->unit_price,
-                    'total_price' => $revenue,
-                    'cost_price' => $item->supplier_price * $item->quantity,
-                    'profit' => $profit,
-                    'profit_margin' => $profitMargin,
-                    'supplier_technician' => null,
-                    'description' => $po->notes,
-                ]);
-            }
-        }
-
-        // 4. Service Purchase transactions (dengan detail items)
-        $servicePos = ServicePurchase::with(['items.service.category', 'items.technician', 'user.branch'])
-            ->whereNotIn('status', ['Draft', 'Cancelled'])
-            ->whereBetween('order_date', [$dateFrom, $dateTo])
-            ->orderBy('order_date', 'desc')
-            ->get();
-
-        foreach ($servicePos as $po) {
-            foreach ($po->items as $item) {
-                $revenue = $po->status_paid === 'paid' ? $item->selling_price : 0;
-                $cost = $po->status_paid === 'paid' ? $item->cost_price : 0;
-                $profit = $revenue - $cost;
-                $profitMargin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
-
-                $transactions->push([
-                    'transaction_type' => 'PO Service',
-                    'transaction_id' => $po->id,
-                    'po_number' => $po->po_number,
-                    'transaction_name' => $po->name,
-                    'date' => $po->order_date,
-                    'branch' => $po->user->branch->name ?? 'No Branch',
-                    'user' => $po->user->name ?? 'Unknown User',
-                    'status' => $po->status,
-                    'payment_status' => ucfirst($po->status_paid ?? 'Pending'),
-                    'item_type' => 'Service',
-                    'item_name' => $item->service->name ?? 'Unknown Service',
-                    'item_code' => $item->service->code ?? 'N/A',
-                    'category' => $item->service->category->name ?? 'No Category',
-                    'quantity' => 1,
-                    'unit_price' => $item->selling_price,
-                    'total_price' => $revenue,
-                    'cost_price' => $item->cost_price,
-                    'profit' => $profit,
-                    'profit_margin' => $profitMargin,
-                    'supplier_technician' => $item->technician->name ?? 'Not Assigned',
-                    'description' => $po->notes,
-                ]);
-            }
-        }
-
-        // 5. Supplier PO transactions
-        $supplierPos = PurchaseProductSupplier::with(['product.category', 'supplier', 'user'])
-            ->whereNotIn('status', ['Draft', 'Cancelled'])
-            ->whereBetween('order_date', [$dateFrom, $dateTo])
-            ->orderBy('order_date', 'desc')
-            ->get();
-
-        foreach ($supplierPos as $po) {
-            $cost = $po->status_paid === 'paid' ? $po->total_amount : 0;
-
-            $transactions->push([
-                'transaction_type' => 'PO Supplier',
-                'transaction_id' => $po->id,
-                'po_number' => $po->po_number,
-                'transaction_name' => $po->name,
-                'date' => $po->order_date,
-                'branch' => null,
-                'user' => $po->user->name ?? 'Unknown User',
-                'status' => $po->status,
-                'payment_status' => ucfirst($po->status_paid ?? 'Pending'),
-                'item_type' => 'Supplier Purchase',
-                'item_name' => $po->product->name ?? 'Unknown Product',
-                'item_code' => $po->product->code ?? 'N/A',
-                'category' => $po->product->category->name ?? 'No Category',
-                'quantity' => $po->quantity,
-                'unit_price' => $po->unit_price,
-                'total_price' => 0, // Ini adalah pengeluaran, bukan revenue
-                'cost_price' => $cost,
-                'profit' => -$cost, // Negative karena ini cost
-                'profit_margin' => $cost > 0 ? -100 : 0,
-                'supplier_technician' => $po->supplier->name ?? 'Unknown Supplier',
-                'description' => $po->notes,
-            ]);
-        }
-
-        return $transactions->sortByDesc('date');
     }
 
     /**
