@@ -57,7 +57,7 @@ class CheckProductExpiry extends Command
 
         // Get users with Admin or Supervisor roles
         $recipients = User::whereHas('roles', function ($query) {
-            $query->whereIn('name', ['Admin', 'Supervisor']);
+            $query->whereIn('name', ['Admin', 'Supervisor', 'Super Admin']);
         })->get();
 
         if ($recipients->count() == 0) {
