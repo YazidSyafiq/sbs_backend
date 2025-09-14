@@ -62,9 +62,9 @@ class AllTransaction extends Model
     }
 
     /**
-     * Apply additional filters to transactions
+     * Apply additional filters to transactions - MADE PUBLIC
      */
-    protected function applyAdditionalFilters($transactions, $filters = [])
+    public function applyAdditionalFilters($transactions, $filters = [])
     {
         $filteredTransactions = collect($transactions);
 

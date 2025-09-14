@@ -11,6 +11,7 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Grid;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use App\Models\AllTransaction;
 use App\Models\Branch;
@@ -47,6 +48,107 @@ class ListAllTransactions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('generate_report')
+                ->label('Generate Report')
+                ->icon('heroicon-o-document-chart-bar')
+                ->color('info')
+                ->form([
+                    Section::make('Report Filters')
+                        ->columns(2)
+                        ->schema([
+                            DatePicker::make('from_date')
+                                ->label('From Date')
+                                ->required()
+                                ->default(now()->subMonths(11)->startOfMonth()),
+                            DatePicker::make('until_date')
+                                ->label('Until Date')
+                                ->required()
+                                ->default(now()),
+                            Select::make('transaction_types')
+                                ->label('Transaction Types')
+                                ->options([
+                                    'Income' => 'Income',
+                                    'Expense' => 'Expense',
+                                    'PO Product' => 'PO Product',
+                                    'PO Service' => 'PO Service',
+                                    'PO Supplier' => 'PO Supplier',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Transaction Types'),
+                            Select::make('payment_statuses')
+                                ->label('Payment Status')
+                                ->options([
+                                    'Paid' => 'Paid',
+                                    'Unpaid' => 'Unpaid',
+                                    'Received' => 'Received',
+                                    'Pending' => 'Pending',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Payment Status'),
+                            Select::make('item_types')
+                                ->label('Item Types')
+                                ->options([
+                                    'Income' => 'Income',
+                                    'Expense' => 'Expense',
+                                    'Product' => 'Product',
+                                    'Service' => 'Service',
+                                    'Supplier Purchase' => 'Supplier Purchase',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Item Types'),
+                            Select::make('branch')
+                                ->label('Branch')
+                                ->options(function () {
+                                    return Branch::select('id', 'name', 'code')
+                                        ->get()
+                                        ->mapWithKeys(function ($branch) {
+                                            return [$branch->name => $branch->name . ' (' . $branch->code . ')'];
+                                        })
+                                        ->toArray();
+                                })
+                                ->searchable()
+                                ->placeholder('All Branches'),
+                            Select::make('user')
+                                ->label('Created By User')
+                                ->options(function () {
+                                    return User::with('branch')
+                                        ->select('id', 'name', 'branch_id')
+                                        ->get()
+                                        ->mapWithKeys(function ($user) {
+                                            $branchName = $user->branch ? ' - ' . $user->branch->name : '';
+                                            return [$user->name => $user->name . $branchName];
+                                        })
+                                        ->toArray();
+                                })
+                                ->searchable()
+                                ->columnSpanFull()
+                                ->placeholder('All Users'),
+                            TextInput::make('min_amount')
+                                ->label('Minimum Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->placeholder('Enter minimum amount'),
+                            TextInput::make('max_amount')
+                                ->label('Maximum Amount')
+                                ->numeric()
+                                ->prefix('Rp')
+                                ->placeholder('Enter maximum amount'),
+                        ])
+                ])
+                ->action(function (array $data) {
+                    // Build query parameters
+                    $params = array_filter($data, function($value) {
+                        return !is_null($value) && $value !== '' && $value !== [];
+                    });
+                    $queryString = http_build_query($params);
+
+                    // Open in new tab
+                    return redirect()->away(route('all-transaction.report') . '?' . $queryString);
+                })
+                ->modalHeading('Generate All Transaction Report')
+                ->modalSubmitActionLabel('Generate Report')
+                ->modalWidth('3xl'),
+
             Actions\Action::make('filter')
                 ->label('Filter Transactions')
                 ->icon('heroicon-o-funnel')

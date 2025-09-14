@@ -7,6 +7,7 @@ use App\Http\Controllers\PurchaseServiceController;
 use App\Http\Controllers\PurchaseProductSupplierController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\AllTransactionController;
 
 Route::get('/', function () {
     return redirect('admin/login');
@@ -44,4 +45,9 @@ Route::get('/purchase-product/report', [PurchaseProductController::class, 'repor
     // Product report route
 Route::get('/product/report', [ProductController::class, 'report'])
     ->name('product.report')
+    ->middleware('auth');
+
+// All Transaction Report route
+Route::get('/all-transaction/report', [AllTransactionController::class, 'report'])
+    ->name('all-transaction.report')
     ->middleware('auth');
