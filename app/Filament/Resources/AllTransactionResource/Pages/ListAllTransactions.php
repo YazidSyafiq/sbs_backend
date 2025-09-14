@@ -1,0 +1,195 @@
+<?php
+
+namespace App\Filament\Resources\AllTransactionResource\Pages;
+
+use App\Filament\Resources\AllTransactionResource;
+use App\Filament\Resources\AllTransactionResource\Widgets\AllTransactionFilterInfo;
+use Filament\Resources\Pages\ListRecords;
+use Filament\Pages\Concerns\ExposesTableToWidgets;
+use Filament\Actions;
+use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Grid;
+use Filament\Forms\Components\Select;
+use Filament\Notifications\Notification;
+use App\Models\AllTransaction;
+use App\Models\Branch;
+use App\Models\User;
+use Carbon\Carbon;
+
+class ListAllTransactions extends ListRecords
+{
+    use ExposesTableToWidgets;
+
+    protected static string $resource = AllTransactionResource::class;
+
+    protected function getHeaderWidgets(): array
+    {
+        $widgets = [];
+
+        // Only show filter info widget if filters are active
+        $filters = session('all_transaction_filters', []);
+        $activeFilters = collect($filters)
+            ->filter(function($value) {
+                if (is_array($value)) {
+                    return !empty($value);
+                }
+                return !is_null($value) && $value !== false && $value !== '';
+            });
+
+        if ($activeFilters->count() > 0) {
+            $widgets[] = AllTransactionFilterInfo::class;
+        }
+
+        return $widgets;
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Actions\Action::make('filter')
+                ->label('Filter Transactions')
+                ->icon('heroicon-o-funnel')
+                ->color('primary')
+                ->modalHeading('Filter All Transactions')
+                ->modalDescription('Select criteria to filter transaction data')
+                ->modalWidth('3xl')
+                ->fillForm(function(): array {
+                    $currentFilters = session('all_transaction_filters', []);
+
+                    // Set default dates if not set
+                    if (empty($currentFilters['date_from']) && empty($currentFilters['date_until'])) {
+                        $currentFilters['date_from'] = Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
+                        $currentFilters['date_until'] = Carbon::now()->endOfMonth()->toDateString();
+                    }
+
+                    return $currentFilters;
+                })
+                ->form([
+                    Section::make('Date Range')
+                        ->columns(2)
+                        ->schema([
+                            DatePicker::make('date_from')
+                                ->label('From Date')
+                                ->placeholder('Select start date')
+                                ->required(),
+
+                            DatePicker::make('date_until')
+                                ->label('Until Date')
+                                ->placeholder('Select end date')
+                                ->required(),
+                        ]),
+
+                    Section::make('Transaction Filters')
+                        ->columns(2)
+                        ->schema([
+                            Select::make('transaction_types')
+                                ->label('Transaction Types')
+                                ->options([
+                                    'Income' => 'Income',
+                                    'Expense' => 'Expense',
+                                    'PO Product' => 'PO Product',
+                                    'PO Service' => 'PO Service',
+                                    'PO Supplier' => 'PO Supplier',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Transaction Types'),
+
+                            Select::make('payment_statuses')
+                                ->label('Payment Status')
+                                ->options([
+                                    'Paid' => 'Paid',
+                                    'Unpaid' => 'Unpaid',
+                                    'Received' => 'Received',
+                                    'Pending' => 'Pending',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Payment Status'),
+
+                            Select::make('item_types')
+                                ->label('Item Types')
+                                ->options([
+                                    'Income' => 'Income',
+                                    'Expense' => 'Expense',
+                                    'Product' => 'Product',
+                                    'Service' => 'Service',
+                                    'Supplier Purchase' => 'Supplier Purchase',
+                                ])
+                                ->multiple()
+                                ->placeholder('All Item Types'),
+
+                            Select::make('branch')
+                                ->label('Branch')
+                                ->options(function () {
+                                    return Branch::select('id', 'name', 'code')
+                                        ->get()
+                                        ->mapWithKeys(function ($branch) {
+                                            return [$branch->name => $branch->name . ' (' . $branch->code . ')'];
+                                        })
+                                        ->toArray();
+                                })
+                                ->searchable()
+                                ->placeholder('All Branches'),
+
+                            Select::make('user')
+                                ->label('Created By User')
+                                ->hint('Filter transactions by who created them (useful for audit trail & performance tracking)')
+                                ->options(function () {
+                                    return User::with('branch')
+                                        ->select('id', 'name', 'branch_id')
+                                        ->get()
+                                        ->mapWithKeys(function ($user) {
+                                            $branchName = $user->branch ? ' - ' . $user->branch->name : '';
+                                            return [$user->name => $user->name . $branchName];
+                                        })
+                                        ->toArray();
+                                })
+                                ->columnSpanFull()
+                                ->searchable()
+                                ->placeholder('All Users'),
+                        ]),
+                ])
+                ->action(function (array $data): void {
+                    session(['all_transaction_filters' => $data]);
+
+                    $this->redirect(static::getUrl());
+
+                    Notification::make()
+                        ->title('Filters Applied')
+                        ->body('Transaction list updated with selected filters.')
+                        ->success()
+                        ->send();
+                }),
+
+            Actions\Action::make('reset_filters')
+                ->label('Reset Filters')
+                ->icon('heroicon-o-arrow-path')
+                ->color('gray')
+                ->action(function (): void {
+                    session(['all_transaction_filters' => []]);
+
+                    $this->redirect(static::getUrl());
+
+                    Notification::make()
+                        ->title('Filters Reset')
+                        ->body('Showing last 12 months transaction data.')
+                        ->info()
+                        ->send();
+                }),
+        ];
+    }
+
+    public function getTitle(): string
+    {
+        return 'Transactions';
+    }
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        if (!session()->has('all_transaction_filters')) {
+            session(['all_transaction_filters' => []]);
+        }
+    }
+}

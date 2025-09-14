@@ -15,11 +15,11 @@ class AccountingReportResource extends Resource
 {
     protected static ?string $model = AccountingReport::class;
 
-    protected static ?string $navigationIcon = 'heroicon-c-calculator';
+    protected static ?string $navigationIcon = 'heroicon-c-arrow-trending-up';
 
     protected static ?string $navigationGroup = 'Accounting and Report';
 
-    protected static ?int $navigationSort = 6;
+    protected static ?int $navigationSort = 7;
 
     public static function getModelLabel(): string
     {
