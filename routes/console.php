@@ -9,7 +9,7 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote')->hourly();
 
 // Schedule command untuk check product expiry setiap jam 8 pagi
-Schedule::command('products:check-expiry')->dailyAt('03:20');
+Schedule::command('products:check-expiry')->dailyAt('03:00');
 
 // Schedule command untuk check need purchase setiap jam 9 pagi (setelah expiry check)
-Schedule::command('products:check-need-purchase')->dailyAt('03:20');
+Schedule::command('products:check-need-purchase')->dailyAt('09:00');
