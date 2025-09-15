@@ -139,10 +139,9 @@ class AllTransactionResource extends Resource
                     ->toggleable(),
 
                 Tables\Columns\TextColumn::make('total_amount')
-                    ->label('Total Amount')
+                    ->label('Amount (Cash Flow)')
                     ->formatStateUsing(function ($state) {
                         if (is_null($state) || $state == 0) return '-';
-                        $color = $state >= 0 ? 'success' : 'danger';
                         $prefix = $state >= 0 ? '+' : '';
                         return $prefix . 'Rp ' . number_format($state, 0, ',', '.');
                     })
@@ -160,29 +159,31 @@ class AllTransactionResource extends Resource
                     ->toggleable()
                     ->visible(fn () => !Auth::user()?->hasRole('User')),
 
-                Tables\Columns\TextColumn::make('profit')
-                    ->label('Profit')
+                // Kolom Receivables
+                Tables\Columns\TextColumn::make('receivables')
+                    ->label('Receivables')
+                    ->getStateUsing(fn ($record) => $record->outstanding_amount > 0 ? $record->outstanding_amount : 0)
                     ->formatStateUsing(function ($state) {
-                        if (is_null($state)) return '-';
-                        $prefix = $state >= 0 ? '+' : '';
-                        return $prefix . 'Rp ' . number_format($state, 0, ',', '.');
+                        if ($state == 0) return '-';
+                        return 'Rp ' . number_format($state, 0, ',', '.');
                     })
-                    ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
+                    ->color('info') // Blue color
                     ->weight('bold')
                     ->alignEnd()
-                    ->toggleable()
-                    ->visible(fn () => !Auth::user()?->hasRole('User')),
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('profit_margin')
-                    ->label('Margin %')
+                // Kolom Payables
+                Tables\Columns\TextColumn::make('payables')
+                    ->label('Payables')
+                    ->getStateUsing(fn ($record) => $record->outstanding_amount < 0 ? abs($record->outstanding_amount) : 0)
                     ->formatStateUsing(function ($state) {
-                        if (is_null($state)) return '-';
-                        return number_format($state, 1) . '%';
+                        if ($state == 0) return '-';
+                        return 'Rp ' . number_format($state, 0, ',', '.');
                     })
-                    ->color(fn ($state) => $state >= 0 ? 'success' : 'danger')
+                    ->color('danger') // Red color
+                    ->weight('bold')
                     ->alignEnd()
-                    ->toggleable()
-                    ->visible(fn () => !Auth::user()?->hasRole('User')),
+                    ->toggleable(),
 
                 Tables\Columns\TextColumn::make('supplier_technician')
                     ->label('Supplier/Technician')

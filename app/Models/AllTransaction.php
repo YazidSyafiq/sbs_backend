@@ -41,8 +41,7 @@ class AllTransaction extends Model
         'unit_price',
         'total_amount',
         'cost_price',
-        'profit',
-        'profit_margin',
+        'outstanding_amount',
         'supplier_technician',
         'description',
     ];
@@ -120,7 +119,7 @@ class AllTransaction extends Model
 
         $transactions = collect();
 
-        // 1. Income transactions
+        // 1. Income transactions (always received/paid, no outstanding)
         $incomes = Income::whereBetween('date', [$dateFrom, $dateTo])
             ->orderBy('date', 'desc')
             ->get();
@@ -134,7 +133,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $income->name;
             $virtualRecord->date = $income->date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = 'System'; // Set default user for Income
+            $virtualRecord->user = 'System';
             $virtualRecord->status = 'Completed';
             $virtualRecord->payment_status = 'Received';
             $virtualRecord->item_type = 'Income';
@@ -143,10 +142,9 @@ class AllTransaction extends Model
             $virtualRecord->category = 'Income';
             $virtualRecord->quantity = 1;
             $virtualRecord->unit_price = $income->income_amount;
-            $virtualRecord->total_amount = $income->income_amount;
+            $virtualRecord->total_amount = $income->income_amount; // Always positive (cash in)
             $virtualRecord->cost_price = 0;
-            $virtualRecord->profit = $income->income_amount;
-            $virtualRecord->profit_margin = 100;
+            $virtualRecord->outstanding_amount = 0; // Income always paid
             $virtualRecord->supplier_technician = null;
             $virtualRecord->description = $income->description;
             $virtualRecord->exists = true;
@@ -154,7 +152,7 @@ class AllTransaction extends Model
             $transactions->push($virtualRecord);
         }
 
-        // 2. Expense transactions
+        // 2. Expense transactions (always paid, no outstanding)
         $expenses = Expense::whereBetween('date', [$dateFrom, $dateTo])
             ->orderBy('date', 'desc')
             ->get();
@@ -168,7 +166,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $expense->name;
             $virtualRecord->date = $expense->date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = 'System'; // Set default user for Expense
+            $virtualRecord->user = 'System';
             $virtualRecord->status = 'Completed';
             $virtualRecord->payment_status = 'Paid';
             $virtualRecord->item_type = 'Expense';
@@ -176,11 +174,10 @@ class AllTransaction extends Model
             $virtualRecord->item_code = null;
             $virtualRecord->category = 'Expense';
             $virtualRecord->quantity = 1;
-            $virtualRecord->unit_price = -$expense->expense_amount;
-            $virtualRecord->total_amount = -$expense->expense_amount;
+            $virtualRecord->unit_price = $expense->expense_amount;
+            $virtualRecord->total_amount = -$expense->expense_amount; // Always negative (cash out)
             $virtualRecord->cost_price = $expense->expense_amount;
-            $virtualRecord->profit = -$expense->expense_amount;
-            $virtualRecord->profit_margin = -100;
+            $virtualRecord->outstanding_amount = 0; // Expense always paid
             $virtualRecord->supplier_technician = null;
             $virtualRecord->description = $expense->description;
             $virtualRecord->exists = true;
@@ -188,7 +185,7 @@ class AllTransaction extends Model
             $transactions->push($virtualRecord);
         }
 
-        // 3. PO Product transactions (dengan detail items)
+        // 3. PO Product transactions
         $poProducts = PurchaseProduct::with(['items.product.category', 'user.branch'])
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
@@ -196,11 +193,22 @@ class AllTransaction extends Model
             ->get();
 
         foreach ($poProducts as $po) {
+            // Check if paid or not
+            $isPaid = in_array(strtolower($po->status_paid ?? ''), ['paid', 'completed']);
+
             foreach ($po->items as $item) {
-                $revenue = $po->status_paid === 'paid' ? $item->total_price : 0;
-                $cost = $po->status_paid === 'paid' ? (($item->cost_price ?? 0) * $item->quantity) : 0;
-                $profit = $revenue - $cost;
-                $profitMargin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
+                // Calculate FIFO cost if available
+                $fifoCost = 0;
+                if ($item->product_batch_details) {
+                    $batchDetails = json_decode($item->product_batch_details, true);
+                    if (is_array($batchDetails)) {
+                        foreach ($batchDetails as $batch) {
+                            $fifoCost += ($batch['quantity'] ?? 0) * ($batch['cost_price'] ?? 0);
+                        }
+                    }
+                } else {
+                    $fifoCost = ($item->cost_price ?? 0) * $item->quantity;
+                }
 
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_product_' . $po->id . '_' . $item->id;
@@ -210,7 +218,7 @@ class AllTransaction extends Model
                 $virtualRecord->transaction_name = $po->name;
                 $virtualRecord->date = $po->order_date;
                 $virtualRecord->branch = $po->user->branch->name ?? null;
-                $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
+                $virtualRecord->user = $po->user->name ?? null;
                 $virtualRecord->status = $po->status;
                 $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
                 $virtualRecord->item_type = 'Product';
@@ -219,10 +227,12 @@ class AllTransaction extends Model
                 $virtualRecord->category = $item->product->category->name ?? 'No Category';
                 $virtualRecord->quantity = $item->quantity;
                 $virtualRecord->unit_price = $item->unit_price;
-                $virtualRecord->total_amount = $revenue;
-                $virtualRecord->cost_price = ($item->cost_price ?? 0) * $item->quantity;
-                $virtualRecord->profit = $profit;
-                $virtualRecord->profit_margin = $profitMargin;
+                // Only count as revenue if paid
+                $virtualRecord->total_amount = $isPaid ? $item->total_price : 0;
+                // Only count cost if paid
+                $virtualRecord->cost_price = $isPaid ? $fifoCost : 0;
+                // Outstanding = full amount if unpaid, 0 if paid
+                $virtualRecord->outstanding_amount = !$isPaid ? $item->total_price : 0;
                 $virtualRecord->supplier_technician = null;
                 $virtualRecord->description = $po->notes;
                 $virtualRecord->exists = true;
@@ -231,7 +241,7 @@ class AllTransaction extends Model
             }
         }
 
-        // 4. Service Purchase transactions (dengan detail items)
+        // 4. Service Purchase transactions
         $servicePos = ServicePurchase::with(['items.service.category', 'items.technician', 'user.branch'])
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
@@ -239,12 +249,10 @@ class AllTransaction extends Model
             ->get();
 
         foreach ($servicePos as $po) {
-            foreach ($po->items as $item) {
-                $revenue = $po->status_paid === 'paid' ? $item->selling_price : 0;
-                $cost = $po->status_paid === 'paid' ? ($item->cost_price ?? 0) : 0;
-                $profit = $revenue - $cost;
-                $profitMargin = $revenue > 0 ? round(($profit / $revenue) * 100, 2) : 0;
+            // Check if paid or not
+            $isPaid = in_array(strtolower($po->status_paid ?? ''), ['paid', 'completed']);
 
+            foreach ($po->items as $item) {
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_service_' . $po->id . '_' . $item->id;
                 $virtualRecord->transaction_type = 'PO Service';
@@ -253,7 +261,7 @@ class AllTransaction extends Model
                 $virtualRecord->transaction_name = $po->name;
                 $virtualRecord->date = $po->order_date;
                 $virtualRecord->branch = $po->user->branch->name ?? null;
-                $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
+                $virtualRecord->user = $po->user->name ?? null;
                 $virtualRecord->status = $po->status;
                 $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
                 $virtualRecord->item_type = 'Service';
@@ -262,10 +270,12 @@ class AllTransaction extends Model
                 $virtualRecord->category = $item->service->category->name ?? 'No Category';
                 $virtualRecord->quantity = 1;
                 $virtualRecord->unit_price = $item->selling_price;
-                $virtualRecord->total_amount = $revenue;
-                $virtualRecord->cost_price = $item->cost_price ?? 0;
-                $virtualRecord->profit = $profit;
-                $virtualRecord->profit_margin = $profitMargin;
+                // Only count as revenue if paid
+                $virtualRecord->total_amount = $isPaid ? $item->selling_price : 0;
+                // Only count cost if paid
+                $virtualRecord->cost_price = $isPaid ? ($item->cost_price ?? 0) : 0;
+                // Outstanding = full amount if unpaid, 0 if paid
+                $virtualRecord->outstanding_amount = !$isPaid ? $item->selling_price : 0;
                 $virtualRecord->supplier_technician = $item->technician->name ?? null;
                 $virtualRecord->description = $po->notes;
                 $virtualRecord->exists = true;
@@ -282,7 +292,8 @@ class AllTransaction extends Model
             ->get();
 
         foreach ($supplierPos as $po) {
-            $cost = $po->status_paid === 'paid' ? $po->total_amount : 0;
+            // Check if paid or not
+            $isPaid = in_array(strtolower($po->status_paid ?? ''), ['paid', 'completed']);
 
             $virtualRecord = new static();
             $virtualRecord->id = 'po_supplier_' . $po->id;
@@ -292,7 +303,7 @@ class AllTransaction extends Model
             $virtualRecord->transaction_name = $po->name;
             $virtualRecord->date = $po->order_date;
             $virtualRecord->branch = null;
-            $virtualRecord->user = $po->user->name ?? null; // Consistent user name format
+            $virtualRecord->user = $po->user->name ?? null;
             $virtualRecord->status = $po->status;
             $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
             $virtualRecord->item_type = 'Supplier Purchase';
@@ -301,10 +312,12 @@ class AllTransaction extends Model
             $virtualRecord->category = $po->product->category->name ?? 'No Category';
             $virtualRecord->quantity = $po->quantity;
             $virtualRecord->unit_price = $po->unit_price;
-            $virtualRecord->total_amount = 0; // Ini adalah pengeluaran, bukan revenue
-            $virtualRecord->cost_price = $cost;
-            $virtualRecord->profit = -$cost; // Negative karena ini cost
-            $virtualRecord->profit_margin = $cost > 0 ? -100 : 0;
+            // Only count as expense if paid (negative for cash out)
+            $virtualRecord->total_amount = $isPaid ? -$po->total_amount : 0;
+            // Only count cost if paid
+            $virtualRecord->cost_price = $isPaid ? $po->total_amount : 0;
+            // Outstanding = negative amount if unpaid (we owe supplier), 0 if paid
+            $virtualRecord->outstanding_amount = !$isPaid ? -$po->total_amount : 0;
             $virtualRecord->supplier_technician = $po->supplier->name ?? null;
             $virtualRecord->description = $po->notes;
             $virtualRecord->exists = true;

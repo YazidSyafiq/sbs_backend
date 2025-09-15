@@ -135,7 +135,7 @@
 
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
             gap: 15px;
         }
 
@@ -151,7 +151,7 @@
             border-left: 4px solid #28a745;
         }
 
-        .summary-card.expense {
+        .summary-card.cost {
             border-left: 4px solid #dc3545;
         }
 
@@ -161,6 +161,14 @@
 
         .summary-card.transactions {
             border-left: 4px solid #6f42c1;
+        }
+
+        .summary-card.receivables {
+            border-left: 4px solid #0056b3;
+        }
+
+        .summary-card.payables {
+            border-left: 4px solid #dc3545;
         }
 
         .summary-label {
@@ -184,6 +192,10 @@
 
         .summary-value.negative {
             color: #dc3545;
+        }
+
+        .summary-value.blue {
+            color: #0056b3;
         }
 
         .table-container {
@@ -470,21 +482,27 @@
                 </div>
                 <div>
                     <div class="info-item">
-                        <span class="info-label">Total Expense</span>
-                        <span class="info-value">: Rp {{ number_format($totalExpense, 0, ',', '.') }}</span>
+                        <span class="info-label">Total Cost</span>
+                        <span class="info-value">: Rp {{ number_format($totalCost, 0, ',', '.') }}</span>
                     </div>
                     <div class="info-item">
                         <span class="info-label">Net Profit/Loss</span>
-                        <span class="info-value">: Rp {{ number_format($netProfit, 0, ',', '.') }}</span>
+                        <span class="info-value"
+                            style="font-weight: bold; color: {{ $netProfit >= 0 ? '#28a745' : '#dc3545' }}">
+                            : Rp {{ number_format($netProfit, 0, ',', '.') }}
+                        </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-label">Total Profit</span>
-                        <span class="info-value">: Rp {{ number_format($totalProfit, 0, ',', '.') }}</span>
+                        <span class="info-label">Total Receivables</span>
+                        <span class="info-value" style="color: #0056b3; font-weight: bold;">
+                            : Rp {{ number_format($totalReceivables, 0, ',', '.') }}
+                        </span>
                     </div>
                     <div class="info-item">
-                        <span class="info-label">Profit Margin</span>
-                        <span class="info-value">:
-                            {{ $totalRevenue > 0 ? number_format(($totalProfit / $totalRevenue) * 100, 2) : 0 }}%</span>
+                        <span class="info-label">Total Payables</span>
+                        <span class="info-value" style="color: #dc3545; font-weight: bold;">
+                            : Rp {{ number_format($totalPayables, 0, ',', '.') }}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -509,18 +527,27 @@
                     <div class="summary-label">Total Revenue</div>
                     <div class="summary-value positive">Rp {{ number_format($totalRevenue, 0, ',', '.') }}</div>
                 </div>
-                <div class="summary-card expense">
-                    <div class="summary-label">Total Expense</div>
-                    <div class="summary-value negative">Rp {{ number_format($totalExpense, 0, ',', '.') }}</div>
+                <div class="summary-card cost">
+                    <div class="summary-label">Total Cost</div>
+                    <div class="summary-value negative">Rp {{ number_format($totalCost, 0, ',', '.') }}</div>
                 </div>
                 <div class="summary-card profit">
                     <div class="summary-label">Net Profit/Loss</div>
-                    <div class="summary-value {{ $netProfit >= 0 ? 'positive' : 'negative' }}">Rp
-                        {{ number_format($netProfit, 0, ',', '.') }}</div>
+                    <div class="summary-value {{ $netProfit >= 0 ? 'positive' : 'negative' }}">
+                        Rp {{ number_format($netProfit, 0, ',', '.') }}
+                    </div>
                 </div>
                 <div class="summary-card transactions">
                     <div class="summary-label">Total Transactions</div>
                     <div class="summary-value">{{ $totalTransactions }}</div>
+                </div>
+                <div class="summary-card receivables">
+                    <div class="summary-label">Total Receivables</div>
+                    <div class="summary-value blue">Rp {{ number_format($totalReceivables, 0, ',', '.') }}</div>
+                </div>
+                <div class="summary-card payables">
+                    <div class="summary-label">Total Payables</div>
+                    <div class="summary-value negative">Rp {{ number_format($totalPayables, 0, ',', '.') }}</div>
                 </div>
             </div>
         </div>
@@ -530,13 +557,15 @@
             <div class="summary-section">
                 <h3>Transaction Type Summary</h3>
                 <div class="table-container">
-                    <table class="report-table" style="min-width: 600px;">
+                    <table class="report-table" style="min-width: 700px;">
                         <thead>
                             <tr>
                                 <th>Transaction Type</th>
                                 <th>Count</th>
-                                <th>Total Amount</th>
-                                <th>Average Amount</th>
+                                <th>Total Cash Flow</th>
+                                <th>Total Cost</th>
+                                <th>Receivables</th>
+                                <th>Payables</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -547,10 +576,20 @@
                                             class="transaction-type-badge type-{{ strtolower(str_replace([' ', '/'], ['-', '-'], $type)) }}">{{ $type }}</span>
                                     </td>
                                     <td style="text-align: center;">{{ number_format($summary['count']) }}</td>
-                                    <td style="text-align: right; font-weight: bold;">Rp
-                                        {{ number_format($summary['total_amount'], 0, ',', '.') }}</td>
-                                    <td style="text-align: right;">Rp
-                                        {{ number_format($summary['avg_amount'], 0, ',', '.') }}</td>
+                                    <td
+                                        style="text-align: right; font-weight: bold; color: {{ $summary['total_amount'] >= 0 ? '#28a745' : '#dc3545' }}">
+                                        {{ $summary['total_amount'] >= 0 ? '+' : '' }}Rp
+                                        {{ number_format($summary['total_amount'], 0, ',', '.') }}
+                                    </td>
+                                    <td style="text-align: right;">
+                                        Rp {{ number_format($summary['total_cost'], 0, ',', '.') }}
+                                    </td>
+                                    <td style="text-align: right; color: #0056b3; font-weight: bold;">
+                                        {{ $summary['total_receivables'] > 0 ? 'Rp ' . number_format($summary['total_receivables'], 0, ',', '.') : '-' }}
+                                    </td>
+                                    <td style="text-align: right; color: #dc3545; font-weight: bold;">
+                                        {{ $summary['total_payables'] > 0 ? 'Rp ' . number_format($summary['total_payables'], 0, ',', '.') : '-' }}
+                                    </td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -565,21 +604,22 @@
             <table class="report-table">
                 <thead>
                     <tr>
-                        <th style="width: 30px;">NO</th>
-                        <th style="width: 70px;">DATE</th>
-                        <th style="width: 80px;">TRANSACTION TYPE</th>
-                        <th style="width: 90px;">PO NUMBER</th>
-                        <th style="width: 120px;">TRANSACTION NAME</th>
-                        <th style="width: 60px;">BRANCH</th>
-                        <th style="width: 80px;">USER</th>
-                        <th style="width: 140px;">ITEM NAME</th>
-                        <th style="width: 60px;">QTY</th>
-                        <th style="width: 80px;">UNIT PRICE</th>
-                        <th style="width: 80px;">TOTAL AMOUNT</th>
-                        <th style="width: 80px;">COST</th>
-                        <th style="width: 80px;">PROFIT</th>
-                        <th style="width: 70px;">PAYMENT STATUS</th>
-                        <th style="width: 100px;">SUPPLIER/TECHNICIAN</th>
+                        <th style="width: 25px;">NO</th>
+                        <th style="width: 65px;">DATE</th>
+                        <th style="width: 75px;">TRANSACTION TYPE</th>
+                        <th style="width: 80px;">PO NUMBER</th>
+                        <th style="width: 110px;">TRANSACTION NAME</th>
+                        <th style="width: 55px;">BRANCH</th>
+                        <th style="width: 70px;">USER</th>
+                        <th style="width: 120px;">ITEM NAME</th>
+                        <th style="width: 40px;">QTY</th>
+                        <th style="width: 70px;">UNIT PRICE</th>
+                        <th style="width: 85px;">AMOUNT (CASH FLOW)</th>
+                        <th style="width: 70px;">COST</th>
+                        <th style="width: 75px;">RECEIVABLES</th>
+                        <th style="width: 75px;">PAYABLES</th>
+                        <th style="width: 60px;">PAYMENT STATUS</th>
+                        <th style="width: 90px;">SUPPLIER/TECHNICIAN</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -616,7 +656,7 @@
                                 </td>
                                 <td
                                     style="text-align: right; font-weight: bold; color: {{ $transaction->total_amount >= 0 ? '#28a745' : '#dc3545' }};">
-                                    @if ($transaction->total_amount)
+                                    @if ($transaction->total_amount !== null && $transaction->total_amount != 0)
                                         {{ $transaction->total_amount >= 0 ? '+' : '' }}Rp
                                         {{ number_format($transaction->total_amount, 0, ',', '.') }}
                                     @else
@@ -624,17 +664,24 @@
                                     @endif
                                 </td>
                                 <td style="text-align: right;">
-                                    @if ($transaction->cost_price)
+                                    @if ($transaction->cost_price && $transaction->cost_price != 0)
                                         Rp {{ number_format($transaction->cost_price, 0, ',', '.') }}
                                     @else
                                         -
                                     @endif
                                 </td>
-                                <td
-                                    style="text-align: right; font-weight: bold; color: {{ ($transaction->profit ?? 0) >= 0 ? '#28a745' : '#dc3545' }};">
-                                    @if ($transaction->profit !== null)
-                                        {{ $transaction->profit >= 0 ? '+' : '' }}Rp
-                                        {{ number_format($transaction->profit, 0, ',', '.') }}
+                                <!-- Kolom Receivables -->
+                                <td style="text-align: right; font-weight: bold; color: #0056b3;">
+                                    @if ($transaction->outstanding_amount > 0)
+                                        Rp {{ number_format($transaction->outstanding_amount, 0, ',', '.') }}
+                                    @else
+                                        -
+                                    @endif
+                                </td>
+                                <!-- Kolom Payables -->
+                                <td style="text-align: right; font-weight: bold; color: #dc3545;">
+                                    @if ($transaction->outstanding_amount < 0)
+                                        Rp {{ number_format(abs($transaction->outstanding_amount), 0, ',', '.') }}
                                     @else
                                         -
                                     @endif
@@ -649,7 +696,7 @@
                         @endforeach
                     @else
                         <tr>
-                            <td colspan="15"
+                            <td colspan="16"
                                 style="text-align: center; padding: 20px; color: #666; font-style: italic;">
                                 No transactions found for the selected criteria.
                             </td>

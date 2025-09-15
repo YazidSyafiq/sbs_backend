@@ -47,7 +47,7 @@ class AllTransactionController extends Controller
             ]);
         }
 
-        // Get users from Service Purchases - assuming relationship exists
+        // Get users from Service Purchases
         try {
             $serviceUsers = User::whereHas('servicePurchases', function($query) {
                 $query->whereNotIn('status', ['Draft', 'Cancelled']);
@@ -63,7 +63,7 @@ class AllTransactionController extends Controller
             // Ignore if relationship doesn't exist yet
         }
 
-        // Get users from Supplier Purchases - assuming relationship exists
+        // Get users from Supplier Purchases
         try {
             $supplierUsers = User::whereHas('purchaseProductSuppliers', function($query) {
                 $query->where('status', '!=', 'Cancelled');
@@ -87,7 +87,7 @@ class AllTransactionController extends Controller
                 if ($user->branch_name) {
                     $label .= ' (' . $user->branch_name . ')';
                 }
-                return [$user->name => $label]; // Value is just the name, label includes branch
+                return [$user->name => $label];
             })
             ->toArray();
     }
@@ -144,17 +144,28 @@ class AllTransactionController extends Controller
 
         // Calculate totals
         $totalTransactions = $transactions->count();
-        $totalRevenue = $transactions->where('total_amount', '>', 0)->sum('total_amount');
-        $totalExpense = abs($transactions->where('total_amount', '<', 0)->sum('total_amount'));
-        $netProfit = $totalRevenue - $totalExpense;
-        $totalProfit = $transactions->sum('profit');
 
-        // Transaction type summary
+        // Total Revenue = semua amount positif (yang sudah paid)
+        $totalRevenue = $transactions->where('total_amount', '>', 0)->sum('total_amount');
+
+        // Total Cost = semua cost_price (yang sudah paid)
+        $totalCost = $transactions->sum('cost_price');
+
+        // Net Profit/Loss = Revenue - Cost
+        $netProfit = $totalRevenue - $totalCost;
+
+        // Outstanding calculations
+        $totalReceivables = $transactions->where('outstanding_amount', '>', 0)->sum('outstanding_amount');
+        $totalPayables = abs($transactions->where('outstanding_amount', '<', 0)->sum('outstanding_amount'));
+
+        // Transaction type summary (without average amount)
         $transactionTypeSummary = $transactions->groupBy('transaction_type')->map(function($items, $type) {
             return [
                 'count' => $items->count(),
                 'total_amount' => $items->sum('total_amount'),
-                'avg_amount' => $items->count() > 0 ? $items->sum('total_amount') / $items->count() : 0,
+                'total_cost' => $items->sum('cost_price'),
+                'total_receivables' => $items->where('outstanding_amount', '>', 0)->sum('outstanding_amount'),
+                'total_payables' => abs($items->where('outstanding_amount', '<', 0)->sum('outstanding_amount')),
             ];
         });
 
@@ -163,32 +174,50 @@ class AllTransactionController extends Controller
             return [
                 'count' => $items->count(),
                 'total_amount' => $items->sum('total_amount'),
+                'total_cost' => $items->sum('cost_price'),
+                'total_receivables' => $items->where('outstanding_amount', '>', 0)->sum('outstanding_amount'),
+                'total_payables' => abs($items->where('outstanding_amount', '<', 0)->sum('outstanding_amount')),
             ];
         });
 
-        // Branch summary (only for transactions with branch info)
+        // Branch summary
         $branchSummary = $transactions->filter(function($transaction) {
             return $transaction->branch &&
                    $transaction->branch !== '-' &&
                    $transaction->branch !== 'No Branch' &&
                    $transaction->branch !== null;
         })->groupBy('branch')->map(function($items, $branchName) {
+            $revenue = $items->where('total_amount', '>', 0)->sum('total_amount');
+            $cost = $items->sum('cost_price');
+            $receivables = $items->where('outstanding_amount', '>', 0)->sum('outstanding_amount');
+            $payables = abs($items->where('outstanding_amount', '<', 0)->sum('outstanding_amount'));
+
             return [
                 'count' => $items->count(),
-                'total_amount' => $items->sum('total_amount'),
-                'profit' => $items->sum('profit'),
+                'total_revenue' => $revenue,
+                'total_cost' => $cost,
+                'net_profit' => $revenue - $cost,
+                'total_receivables' => $receivables,
+                'total_payables' => $payables,
             ];
         });
 
-        // User summary - NEW
+        // User summary
         $userSummary = $transactions->filter(function($transaction) {
-            return $transaction->user &&
-                   $transaction->user !== null;
+            return $transaction->user && $transaction->user !== null;
         })->groupBy('user')->map(function($items, $userName) {
+            $revenue = $items->where('total_amount', '>', 0)->sum('total_amount');
+            $cost = $items->sum('cost_price');
+            $receivables = $items->where('outstanding_amount', '>', 0)->sum('outstanding_amount');
+            $payables = abs($items->where('outstanding_amount', '<', 0)->sum('outstanding_amount'));
+
             return [
                 'count' => $items->count(),
-                'total_amount' => $items->sum('total_amount'),
-                'profit' => $items->sum('profit'),
+                'total_revenue' => $revenue,
+                'total_cost' => $cost,
+                'net_profit' => $revenue - $cost,
+                'total_receivables' => $receivables,
+                'total_payables' => $payables,
             ];
         });
 
@@ -196,12 +225,19 @@ class AllTransactionController extends Controller
         $monthlySummary = $transactions->groupBy(function($transaction) {
             return Carbon::parse($transaction->date)->format('Y-m');
         })->map(function($items, $month) {
+            $revenue = $items->where('total_amount', '>', 0)->sum('total_amount');
+            $cost = $items->sum('cost_price');
+            $receivables = $items->where('outstanding_amount', '>', 0)->sum('outstanding_amount');
+            $payables = abs($items->where('outstanding_amount', '<', 0)->sum('outstanding_amount'));
+
             return [
                 'month' => Carbon::createFromFormat('Y-m', $month)->format('F Y'),
                 'count' => $items->count(),
-                'revenue' => $items->where('total_amount', '>', 0)->sum('total_amount'),
-                'expense' => abs($items->where('total_amount', '<', 0)->sum('total_amount')),
-                'profit' => $items->sum('profit'),
+                'revenue' => $revenue,
+                'cost' => $cost,
+                'net_profit' => $revenue - $cost,
+                'receivables' => $receivables,
+                'payables' => $payables,
             ];
         });
 
@@ -215,9 +251,10 @@ class AllTransactionController extends Controller
             'untilDate',
             'totalTransactions',
             'totalRevenue',
-            'totalExpense',
+            'totalCost',
             'netProfit',
-            'totalProfit',
+            'totalReceivables',
+            'totalPayables',
             'transactionTypeSummary',
             'paymentStatusSummary',
             'branchSummary',
