@@ -12,4 +12,4 @@ Artisan::command('inspire', function () {
 Schedule::command('products:check-expiry')->dailyAt('03:00');
 
 // Schedule command untuk check need purchase setiap jam 9 pagi (setelah expiry check)
-Schedule::command('products:check-need-purchase')->dailyAt('10:10');
+Schedule::command('products:check-need-purchase')->dailyAt('10:40');
