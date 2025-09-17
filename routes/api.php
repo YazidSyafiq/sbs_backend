@@ -4,6 +4,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
+use  App\Http\Controllers\API\ProductController;
+use  App\Http\Controllers\API\ServiceController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
@@ -24,4 +26,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Update Profile
     Route::post('/profile-update', [ProfileController::class, 'updateProfile']);
 
+    // Get Product
+    Route::get('/product', [ProductController::class, 'getProduct']);
+
+    // Get Service
+    Route::get('/service', [ServiceController::class, 'getService']);
 });
