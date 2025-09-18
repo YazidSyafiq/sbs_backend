@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
+use  App\Http\Controllers\API\PurchaseProductController;
 use  App\Http\Controllers\API\ServiceController;
 
 // Login
@@ -29,6 +30,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Product
     Route::get('/product', [ProductController::class, 'getProduct']);
 
+    // Get Purchase Product List
+    Route::post('/purchase-products/list', [PurchaseProductController::class, 'getList']);
+
+    // Get Purchase Product Detail
+    Route::post('/purchase-products/detail', [PurchaseProductController::class, 'getDetail']);
+
     // Get Service
     Route::get('/service', [ServiceController::class, 'getService']);
+
 });
