@@ -100,6 +100,7 @@ class ProductBatchResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn (Builder $query) => $query->where('quantity', '>', 0)) // Only show active batches
             ->defaultSort('entry_date', 'desc')
             ->defaultSort('id', 'desc')
             ->columns([
@@ -166,10 +167,7 @@ class ProductBatchResource extends Resource
                     ->preload(),
                 Tables\Filters\Filter::make('low_stock')
                     ->label('Low Stock')
-                    ->query(fn (Builder $query): Builder => $query->where('quantity', '<', 10)),
-                Tables\Filters\Filter::make('out_of_stock')
-                    ->label('Out of Stock')
-                    ->query(fn (Builder $query): Builder => $query->where('quantity', '<=', 0)),
+                    ->query(fn (Builder $query): Builder => $query->where('quantity', '<', 10)->where('quantity', '>', 0)),
                 Tables\Filters\Filter::make('expiring_soon')
                     ->label('Expiring Soon')
                     ->query(fn (Builder $query): Builder =>

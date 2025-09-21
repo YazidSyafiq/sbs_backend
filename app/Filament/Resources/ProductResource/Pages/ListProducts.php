@@ -34,10 +34,16 @@ class ListProducts extends ListRecords
                                         })
                                         ->toArray();
                                 })
-                                ->columnSpanFull()
                                 ->searchable()
                                 ->preload()
                                 ->placeholder('All Categories'),
+                            Forms\Components\Select::make('batch_display')
+                                ->label('Batch Display')
+                                ->options([
+                                    'all' => 'All Batches',
+                                    'active' => 'Active Batches Only (Stock > 0)',
+                                ])
+                                ->default('all'),
                             Forms\Components\Select::make('stock_status')
                                 ->label('Product Stock Status')
                                 ->options([

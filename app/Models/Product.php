@@ -37,6 +37,12 @@ class Product extends Model
         return $this->hasMany(ProductBatch::class);
     }
 
+    // Relationship untuk active batches only (stock > 0)
+    public function activeProductBatches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class)->where('quantity', '>', 0);
+    }
+
     public function availableProductBatches(): HasMany
     {
         return $this->hasMany(ProductBatch::class)->where('quantity', '>', 0);

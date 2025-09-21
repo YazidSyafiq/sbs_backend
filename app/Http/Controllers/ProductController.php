@@ -33,6 +33,7 @@ class ProductController extends Controller
         $maxPrice = $request->max_price ? (float) $request->max_price : null;
         $sortBy = $request->sort_by ?? 'batch_number';
         $expiryFilter = $request->expiry_filter;
+        $batchDisplay = $request->batch_display ?? 'active'; // Default to active batches only
 
         // Build query for Products with batches
         $query = Product::with(['category', 'productBatches.purchaseProductSupplier.supplier']);
@@ -89,10 +90,16 @@ class ProductController extends Controller
                 continue;
             }
 
-            // Get all batches for this product
-            $batches = $product->productBatches;
+            // Get batches based on display filter
+            if ($batchDisplay === 'active') {
+                // Only get active batches (stock > 0)
+                $batches = $product->activeProductBatches;
+            } else {
+                // Get all batches
+                $batches = $product->productBatches;
+            }
 
-            // Filter batches hanya berdasarkan expiry filter (stock filter sudah di product level)
+            // Filter batches hanya berdasarkan expiry filter
             $filteredBatches = $batches->filter(function ($batch) use ($expiryFilter) {
                 // Expiry filters (menggunakan accessor expiry_status dari model)
                 if ($expiryFilter) {
@@ -218,6 +225,14 @@ class ProductController extends Controller
         if ($request->category_id) {
             $category = ProductCategory::find($request->category_id);
             $labels['category'] = $category ? $category->name : 'Unknown';
+        }
+
+        if ($request->batch_display) {
+            $displayLabels = [
+                'all' => 'All Batches',
+                'active' => 'Active Batches Only'
+            ];
+            $labels['batch_display'] = $displayLabels[$request->batch_display] ?? 'Active Batches';
         }
 
         if ($request->stock_status) {

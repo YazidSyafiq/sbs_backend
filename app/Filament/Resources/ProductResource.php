@@ -101,12 +101,12 @@ class ProductResource extends Resource
                             ->prefix('Rp'),
                     ]),
 
-                // Product Batches Section - Hidden on create
-                Forms\Components\Section::make('Product Batches')
+                // Active Product Batches Section - Hidden on create, only show active batches
+                Forms\Components\Section::make('Active Product Batches')
                     ->hidden(fn (string $context) => $context !== 'view')
                     ->schema([
-                        Forms\Components\Repeater::make('productBatches')
-                            ->relationship('productBatches')
+                        Forms\Components\Repeater::make('activeProductBatches')
+                            ->relationship('activeProductBatches') // Changed to active batches relationship
                             ->label('')
                             ->disabled()
                             ->columns(3)
@@ -241,10 +241,11 @@ class ProductResource extends Resource
                         if ($state <= 0) return 'No';
                         return number_format($state) . ' ' . ($record->unit ?? 'pcs');
                     }),
-                Tables\Columns\TextColumn::make('productBatches_count')
-                    ->label('Batches')
+                Tables\Columns\TextColumn::make('activeProductBatches_count')
+                    ->label('Active Batches')
                     ->badge()
-                    ->getStateUsing(fn ($record) => $record->productBatches->count() . ' batches')
+                    ->counts('activeProductBatches')
+                    ->getStateUsing(fn ($record) => $record->activeProductBatches->count() . ' active')
                     ->color('info'),
             ])
             ->filters([
