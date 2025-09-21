@@ -25,12 +25,12 @@ class AccountingOverview extends BaseWidget
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
                 ->color('success'),
 
-            Stat::make('Total Cost (FIFO)', 'Rp ' . number_format($overview->total_cost, 0, ',', '.'))
+            Stat::make('Total Cost', 'Rp ' . number_format($overview->total_cost, 0, ',', '.'))
                 ->description('Expenses + Product COGS + Service Cost + Supplier Cost')
                 ->descriptionIcon('heroicon-m-arrow-trending-down')
                 ->color('danger'),
 
-            Stat::make('Gross Profit', 'Rp ' . number_format($overview->gross_profit, 0, ',', '.'))
+            Stat::make('Profit', 'Rp ' . number_format($overview->gross_profit, 0, ',', '.'))
                 ->description('Margin: ' . $overview->profit_margin . '% • Inventory: Rp ' . number_format($currentInventoryValue, 0, ',', '.'))
                 ->descriptionIcon($overview->gross_profit >= 0 ? 'heroicon-m-plus' : 'heroicon-m-minus')
                 ->color($overview->gross_profit >= 0 ? 'success' : 'danger'),

@@ -131,9 +131,9 @@ class ListAllTransactions extends ListRecords
                                 ->options([
                                     'Income' => 'Income',
                                     'Expense' => 'Expense',
-                                    'PO Product' => 'PO Product',
-                                    'PO Service' => 'PO Service',
-                                    'PO Supplier' => 'PO Supplier',
+                                    'SI Product' => 'SI Product',
+                                    'SI Service' => 'SI Service',
+                                    'PI Product (Supplier)' => 'PI Product (Supplier)',
                                 ])
                                 ->multiple()
                                 ->placeholder('All Transaction Types'),
@@ -243,9 +243,9 @@ class ListAllTransactions extends ListRecords
                                 ->options([
                                     'Income' => 'Income',
                                     'Expense' => 'Expense',
-                                    'PO Product' => 'PO Product',
-                                    'PO Service' => 'PO Service',
-                                    'PO Supplier' => 'PO Supplier',
+                                    'SI Product' => 'SI Product',
+                                    'SI Service' => 'SI Service',
+                                    'PI Product (Supplier)' => 'PI Product (Supplier)',
                                 ])
                                 ->multiple()
                                 ->placeholder('All Transaction Types'),

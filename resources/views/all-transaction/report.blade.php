@@ -258,17 +258,19 @@
             color: #721c24;
         }
 
-        .type-po-product {
+        .type-si-product {
             background-color: #d1ecf1;
             color: #0c5460;
         }
 
-        .type-po-service {
+        .type-si-service {
             background-color: #e2e3ff;
             color: #4c4d7d;
         }
 
-        .type-po-supplier {
+        /* Fixed CSS for PI Product (Supplier) */
+        .type-pi-product-supplier,
+        .type-pi-product {
             background-color: #fff3cd;
             color: #856404;
         }
@@ -570,19 +572,35 @@
                         </thead>
                         <tbody>
                             @foreach ($transactionTypeSummary as $type => $summary)
+                                @php
+                                    // Generate CSS class name
+                                    $cssClass = strtolower(
+                                        str_replace([' ', '/', '(', ')'], ['-', '-', '', ''], $type),
+                                    );
+                                @endphp
                                 <tr>
                                     <td>
                                         <span
-                                            class="transaction-type-badge type-{{ strtolower(str_replace([' ', '/'], ['-', '-'], $type)) }}">{{ $type }}</span>
+                                            class="transaction-type-badge type-{{ $cssClass }}">{{ $type }}</span>
                                     </td>
                                     <td style="text-align: center;">{{ number_format($summary['count']) }}</td>
-                                    <td
-                                        style="text-align: right; font-weight: bold; color: {{ $summary['total_amount'] >= 0 ? '#28a745' : '#dc3545' }}">
-                                        {{ $summary['total_amount'] >= 0 ? '+' : '' }}Rp
-                                        {{ number_format($summary['total_amount'], 0, ',', '.') }}
+                                    <td style="text-align: right; font-weight: bold;">
+                                        @if ($type === 'Expense' || $type === 'PI Product (Supplier)')
+                                            -
+                                        @else
+                                            <span
+                                                style="color: {{ $summary['total_amount'] >= 0 ? '#28a745' : '#dc3545' }}">
+                                                {{ $summary['total_amount'] >= 0 ? '+' : '' }}Rp
+                                                {{ number_format($summary['total_amount'], 0, ',', '.') }}
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td style="text-align: right;">
-                                        Rp {{ number_format($summary['total_cost'], 0, ',', '.') }}
+                                    <td style="text-align: right; color: #dc3545; font-weight: bold;">
+                                        @if ($summary['total_cost'] > 0)
+                                            Rp {{ number_format($summary['total_cost'], 0, ',', '.') }}
+                                        @else
+                                            -
+                                        @endif
                                     </td>
                                     <td style="text-align: right; color: #0056b3; font-weight: bold;">
                                         {{ $summary['total_receivables'] > 0 ? 'Rp ' . number_format($summary['total_receivables'], 0, ',', '.') : '-' }}
@@ -625,13 +643,22 @@
                 <tbody>
                     @if ($transactions->count() > 0)
                         @foreach ($transactions as $index => $transaction)
+                            @php
+                                // Generate CSS class name for transaction type
+                                $transactionCssClass = strtolower(
+                                    str_replace(
+                                        [' ', '/', '(', ')'],
+                                        ['-', '-', '', ''],
+                                        $transaction->transaction_type,
+                                    ),
+                                );
+                            @endphp
                             <tr>
                                 <td style="text-align: center; font-weight: bold;">{{ $index + 1 }}</td>
                                 <td style="text-align: center;">
                                     {{ \Carbon\Carbon::parse($transaction->date)->format('d/m/Y') }}</td>
                                 <td style="text-align: center;">
-                                    <span
-                                        class="transaction-type-badge type-{{ strtolower(str_replace([' ', '/'], ['-', '-'], $transaction->transaction_type)) }}">
+                                    <span class="transaction-type-badge type-{{ $transactionCssClass }}">
                                         {{ $transaction->transaction_type }}
                                     </span>
                                 </td>
@@ -654,16 +681,24 @@
                                         -
                                     @endif
                                 </td>
-                                <td
-                                    style="text-align: right; font-weight: bold; color: {{ $transaction->total_amount >= 0 ? '#28a745' : '#dc3545' }};">
-                                    @if ($transaction->total_amount !== null && $transaction->total_amount != 0)
-                                        {{ $transaction->total_amount >= 0 ? '+' : '' }}Rp
-                                        {{ number_format($transaction->total_amount, 0, ',', '.') }}
-                                    @else
+                                <!-- Amount Column - Empty for Expense and PI Product (Supplier) -->
+                                <td style="text-align: right; font-weight: bold;">
+                                    @if ($transaction->transaction_type === 'Expense' || $transaction->transaction_type === 'PI Product (Supplier)')
                                         -
+                                    @else
+                                        @if ($transaction->total_amount !== null && $transaction->total_amount != 0)
+                                            <span
+                                                style="color: {{ $transaction->total_amount >= 0 ? '#28a745' : '#dc3545' }};">
+                                                {{ $transaction->total_amount >= 0 ? '+' : '' }}Rp
+                                                {{ number_format($transaction->total_amount, 0, ',', '.') }}
+                                            </span>
+                                        @else
+                                            -
+                                        @endif
                                     @endif
                                 </td>
-                                <td style="text-align: right;">
+                                <!-- Cost Column - Red color -->
+                                <td style="text-align: right; color: #dc3545; font-weight: bold;">
                                     @if ($transaction->cost_price && $transaction->cost_price != 0)
                                         Rp {{ number_format($transaction->cost_price, 0, ',', '.') }}
                                     @else

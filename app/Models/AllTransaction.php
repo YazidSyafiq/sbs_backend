@@ -185,7 +185,7 @@ class AllTransaction extends Model
             $transactions->push($virtualRecord);
         }
 
-        // 3. PO Product transactions
+        // 3. PO Product transactions - CHANGED TO SI Product
         $poProducts = PurchaseProduct::with(['items.product.category', 'user.branch'])
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
@@ -212,7 +212,7 @@ class AllTransaction extends Model
 
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_product_' . $po->id . '_' . $item->id;
-                $virtualRecord->transaction_type = 'PO Product';
+                $virtualRecord->transaction_type = 'SI Product'; // CHANGED FROM 'PO Product'
                 $virtualRecord->transaction_id = $po->id;
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
@@ -241,7 +241,7 @@ class AllTransaction extends Model
             }
         }
 
-        // 4. Service Purchase transactions
+        // 4. Service Purchase transactions - CHANGED TO SI Service
         $servicePos = ServicePurchase::with(['items.service.category', 'items.technician', 'user.branch'])
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
@@ -255,7 +255,7 @@ class AllTransaction extends Model
             foreach ($po->items as $item) {
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_service_' . $po->id . '_' . $item->id;
-                $virtualRecord->transaction_type = 'PO Service';
+                $virtualRecord->transaction_type = 'SI Service'; // CHANGED FROM 'PO Service'
                 $virtualRecord->transaction_id = $po->id;
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
@@ -284,7 +284,7 @@ class AllTransaction extends Model
             }
         }
 
-        // 5. Supplier PO transactions
+        // 5. Supplier PO transactions - CHANGED TO PI Product (Supplier)
         $supplierPos = PurchaseProductSupplier::with(['product.category', 'supplier', 'user'])
             ->whereNotIn('status', ['Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
@@ -297,7 +297,7 @@ class AllTransaction extends Model
 
             $virtualRecord = new static();
             $virtualRecord->id = 'po_supplier_' . $po->id;
-            $virtualRecord->transaction_type = 'PO Supplier';
+            $virtualRecord->transaction_type = 'PI Product (Supplier)'; // CHANGED FROM 'PO Supplier'
             $virtualRecord->transaction_id = $po->id;
             $virtualRecord->po_number = $po->po_number;
             $virtualRecord->transaction_name = $po->name;

@@ -96,7 +96,7 @@ class ListServicePurchases extends ListRecords
                     // Open in new tab
                     return redirect()->away(route('purchase-service.report') . '?' . $queryString);
                 })
-                ->modalHeading('Generate Service Purchase Report')
+                ->modalHeading('Generate Service Sales Report')
                 ->modalSubmitActionLabel('Generate Report')
                 ->modalWidth('2xl'),
             Actions\CreateAction::make()

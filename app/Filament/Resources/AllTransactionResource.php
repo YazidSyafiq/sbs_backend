@@ -54,9 +54,9 @@ class AllTransactionResource extends Resource
                     ->color(fn (string $state): string => match ($state) {
                         'Income' => 'success',
                         'Expense' => 'danger',
-                        'PO Product' => 'blue',
-                        'PO Service' => 'purple',
-                        'PO Supplier' => 'warning',
+                        'SI Product' => 'blue',
+                        'SI Service' => 'purple',
+                        'PI Product (Supplier)' => 'warning',
                         default => 'gray'
                     }),
 

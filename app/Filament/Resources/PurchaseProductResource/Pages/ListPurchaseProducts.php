@@ -95,7 +95,7 @@ class ListPurchaseProducts extends ListRecords
                     // Open in new tab
                     return redirect()->away(route('purchase-product.report') . '?' . $queryString);
                 })
-                ->modalHeading('Generate Purchase Product Report')
+                ->modalHeading('Generate Product Sales Report')
                 ->modalSubmitActionLabel('Generate Report')
                 ->modalWidth('2xl'),
             Actions\CreateAction::make()

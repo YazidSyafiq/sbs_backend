@@ -35,7 +35,7 @@ class AccountingReportTrendsSheet implements FromArray, WithHeadings, WithStyles
         $monthlyTrends = AccountingReport::getMonthlyProfitTrends($this->filters);
         if ($monthlyTrends->count() > 0) {
             $data[] = ['FINANCIAL TRENDS OVER TIME'];
-            $data[] = ['Period', 'Total Revenue', 'Total Cost', 'Gross Profit', 'Profit Margin %'];
+            $data[] = ['Period', 'Total Revenue', 'Total Cost', 'Profit', 'Profit Margin %'];
 
             foreach ($monthlyTrends as $trend) {
                 $data[] = [
