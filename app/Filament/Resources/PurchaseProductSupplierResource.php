@@ -18,6 +18,7 @@ use Filament\Forms\Get;
 use Filament\Forms\Set;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
+use Auth;
 
 class PurchaseProductSupplierResource extends Resource
 {
@@ -425,7 +426,7 @@ class PurchaseProductSupplierResource extends Resource
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
                         ->visible(fn (PurchaseProductSupplier $record) =>
-                            $record->status !== 'Done' && !($record->type_po === 'cash' && $record->status !== 'Requested')
+                            $record->status !== 'Done' && !($record->type_po === 'cash' && $record->status !== 'Requested' || (($record->status_paid === 'paid' && !empty($record->bukti_tf)) && (Auth::user()->hasRole('Admin') || Auth::user()->hasRole('Supervisor'))))
                         ),
                 ])
                     ->link()

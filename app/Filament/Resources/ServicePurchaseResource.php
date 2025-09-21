@@ -203,7 +203,7 @@ class ServicePurchaseResource extends Resource
                                     ->live()
                                     ->placeholder('Select Technician')
                                     ->columnSpanFull()
-                                    ->hidden(fn (Get $get) => $get('../../status') === 'Draft')
+                                    ->hidden(fn (Get $get) => (($get('../../status') === 'Draft' || $get('../../status') === 'Requested')))
                                     ->disabled(fn (Get $get) => $get('../../status') === 'Approved' || $get('../../status') === 'In Progress' ||  $get('../../status') === 'Done' ||  $get('../../status') === 'Cancelled' || Auth::user()->hasRole('User'))
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
@@ -218,8 +218,9 @@ class ServicePurchaseResource extends Resource
                             ->live()
                             ->addAction(
                                 fn (Forms\Components\Actions\Action $action) => $action
-                                    ->label('Add Product')
+                                    ->label('Add Service')
                                     ->icon('heroicon-m-plus')
+                                    ->visible(fn (Get $get) => ($get('status') === 'Draft' && Auth::user()->hasRole('User')) || ($get('status_paid') === 'unpaid' && $get('bukti_tf') === null))
                             )
                             ->deletable(fn (Get $get) => $get('status') === 'Draft')
                             ->reorderable()
@@ -289,14 +290,14 @@ class ServicePurchaseResource extends Resource
                             ->searchable()
                             ->preload()
                             ->dehydrated()
-                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->required(),
                         Forms\Components\FileUpload::make('bukti_tf')
                             ->label('Upload Payment Receipt')
                             ->maxSize(3072)
                             ->disk('public')
                             ->columnSpanFull()
-                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_product')
                             ->required(function (ServicePurchase $record) {
                                 $user = Auth::user();
