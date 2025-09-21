@@ -26,18 +26,39 @@ class ServicePurchaseResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-shopping-cart';
 
-    protected static ?string $navigationGroup = 'Purchase Service Management';
-
     protected static ?int $navigationSort = 19;
+
+    public static function getNavigationGroup(): ?string
+    {
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service Management';
+        }
+
+        return 'Service Sales Management';
+    }
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Service';
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service';
+        }
+
+        return 'Service Sales';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Services';
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Services';
+        }
+
+        return 'Service Sales';
     }
 
     public static function form(Form $form): Form

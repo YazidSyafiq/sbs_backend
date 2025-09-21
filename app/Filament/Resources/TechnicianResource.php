@@ -20,7 +20,7 @@ class TechnicianResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-bolt';
 
-    protected static ?string $navigationGroup = 'Purchase Service Management';
+    protected static ?string $navigationGroup = 'Service Sales Management';
 
     protected static ?int $navigationSort = 18;
 

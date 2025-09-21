@@ -18,18 +18,34 @@ class POReportServiceResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-chart-bar';
 
-    protected static ?string $navigationGroup = 'Purchase Service Management';
+    public static function getNavigationGroup(): ?string
+    {
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service Management';
+        }
+
+        return 'Service Sales Management';
+    }
 
     protected static ?int $navigationSort = 20;
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Service Analytic';
-    }
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service Analytic';
+        }
+        return 'Service Sales Analytic';}
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Service Analytics';
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service Analytics';
+        }
+        return 'Service Sales Analytics';
     }
 
     public static function table(Table $table): Table

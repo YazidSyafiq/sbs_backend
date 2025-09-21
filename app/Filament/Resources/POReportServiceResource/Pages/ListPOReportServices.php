@@ -250,6 +250,10 @@ class ListPOReportServices extends ListRecords
 
     public function getTitle(): string
     {
-        return 'Purchase Service Analytics';
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Service Analytics';
+        }
+        return 'Service Sales Analytics';
     }
 }
