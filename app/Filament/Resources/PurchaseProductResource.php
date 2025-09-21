@@ -293,14 +293,14 @@ class PurchaseProductResource extends Resource
                             ->searchable()
                             ->preload()
                             ->dehydrated()
-                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->required(),
                         Forms\Components\FileUpload::make('bukti_tf')
                             ->label('Upload Payment Receipt')
                             ->maxSize(3072)
                             ->disk('public')
                             ->columnSpanFull()
-                            ->disabled(fn (Get $get) => $get('status') === 'Done')
+                            ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_product')
                             ->required(function (PurchaseProduct $record) {
                                 $user = Auth::user();

@@ -101,6 +101,7 @@ class ListServicePurchases extends ListRecords
                 ->modalWidth('2xl'),
             Actions\CreateAction::make()
                 ->label('Purchase Order')
+                ->hidden(!Auth::user()->hasRole('User'))
                 ->icon('heroicon-m-shopping-cart'),
         ];
     }
