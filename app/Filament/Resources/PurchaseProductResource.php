@@ -25,18 +25,39 @@ class PurchaseProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-shopping-cart';
 
-    protected static ?string $navigationGroup = 'Purchase Product Management';
+    public static function getNavigationGroup(): ?string
+    {
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product Management';
+        }
+
+        return 'Product Sales Management';
+    }
 
     protected static ?int $navigationSort = 16;
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Product';
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product';
+        }
+
+        return 'Product Sales';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Products';
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Products';
+        }
+
+        return 'Product Sales';
     }
 
     public static function form(Form $form): Form

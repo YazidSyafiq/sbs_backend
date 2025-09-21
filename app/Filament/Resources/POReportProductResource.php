@@ -19,18 +19,35 @@ class POReportProductResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-m-chart-bar';
 
-    protected static ?string $navigationGroup = 'Purchase Product Management';
+    public static function getNavigationGroup(): ?string
+    {
+        $user = Auth::user();
+
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product Management';
+        }
+
+        return 'Product Sales Management';
+    }
 
     protected static ?int $navigationSort = 17;
 
     public static function getModelLabel(): string
     {
-        return 'Purchase Product Analytic';
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product Analytic';
+        }
+        return 'Product Sales Analytic';
     }
 
     public static function getPluralModelLabel(): string
     {
-        return 'Purchase Product Analytics';
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product Analytics';
+        }
+        return 'Product Sales Analytics';
     }
 
     public static function table(Table $table): Table

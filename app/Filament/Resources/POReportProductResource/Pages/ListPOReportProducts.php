@@ -224,6 +224,10 @@ class ListPOReportProducts extends ListRecords
 
     public function getTitle(): string
     {
-        return 'Purchase Product Analytics';
+        $user = Auth::user();
+        if ($user && $user->hasRole('User')) {
+            return 'Purchase Product Analytics';
+        }
+        return 'Product Sales Analytics';
     }
 }
