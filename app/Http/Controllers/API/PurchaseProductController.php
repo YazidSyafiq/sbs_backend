@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PurchaseProductResource;
 use App\Models\PurchaseProduct;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class PurchaseProductController extends Controller
 {
@@ -90,7 +92,7 @@ class PurchaseProductController extends Controller
                 'last_page' => (int)$lastPage,
                 'has_more' => ($start + $limit) < $total
             ],
-            'message' => 'Purchase products retrieved successfully'
+            'message' => 'Purchase Products Retrieved Successfully'
         ]);
     }
 
@@ -99,9 +101,19 @@ class PurchaseProductController extends Controller
      */
     public function getDetail(Request $request)
     {
-        $request->validate([
-            'id' => 'required|integer'
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
         ]);
+
+        // Jika validasi gagal, kembalikan response dengan format yang diinginkan
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
 
         $user = auth()->user();
         $query = PurchaseProduct::with(['user', 'items.product']);
@@ -118,14 +130,127 @@ class PurchaseProductController extends Controller
         if (!$purchaseProduct) {
             return response()->json([
                 'success' => false,
-                'message' => 'Purchase product not found or access denied'
+                'message' => 'Purchase Product Not Found Or Access Denied'
             ], 404);
         }
 
         return response()->json([
             'success' => true,
             'data' => new PurchaseProductResource($purchaseProduct),
-            'message' => 'Purchase product detail retrieved successfully'
+            'message' => 'Purchase Product Detail Retrieved Successfully'
         ]);
+    }
+
+    /**
+     * Update payment status and upload payment receipt
+     */
+    public function updatePayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'bukti_tf' => 'required|string',
+        ], [
+            'id.required' => 'ID Is Required.',
+            'bukti_tf.required' => 'Payment Receipt Is Required.'
+        ]);
+
+        // Jika validasi gagal, kembalikan response dengan format yang diinginkan
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProduct::with(['user', 'items.product']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('user')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseProduct = $query->find($request->id);
+
+        if (!$purchaseProduct) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Product Not Found Or Access Denied'
+            ], 404);
+        }
+
+        try {
+            // Handle base64 image upload
+            $imageData = $request->bukti_tf;
+
+            // Check if it's a data URL (data:image/jpeg;base64,...)
+            if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
+                // Extract the base64 encoded binary data
+                $imageData = substr($imageData, strpos($imageData, ',') + 1);
+                $type = strtolower($type[1]); // jpg, png, gif
+            } else {
+                // If no data URL prefix, assume it's raw base64
+                $type = 'jpg'; // default type
+            }
+
+            // Validate image type
+            if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Image Type. Only JPG, JPEG, PNG And GIF Are Allowed.',
+                ], 422);
+            }
+
+            // Decode base64
+            $decodedData = base64_decode($imageData);
+
+            if ($decodedData === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Base64 Image Data.',
+                ], 422);
+            }
+
+            // Generate filename using PO number
+            $fileName = $purchaseProduct->po_number . '_' . time() . '.' . $type;
+            $path = 'po_product/' . $fileName;
+
+            // Store the image
+            $stored = Storage::disk('public')->put($path, $decodedData);
+
+            if (!$stored) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed To Store Payment Receipt.',
+                ], 422);
+            }
+
+            // Update purchase product
+            $purchaseProduct->status_paid = 'paid';
+            $purchaseProduct->bukti_tf = $path;
+
+            if ($purchaseProduct->save()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => new PurchaseProductResource($purchaseProduct),
+                    'message' => 'Payment Updated Successfully'
+                ]);
+            } else {
+                // If save failed, delete the uploaded file
+                Storage::disk('public')->delete($path);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed To Update Payment Status'
+                ], 422);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error Processing Payment Receipt: ' . $e->getMessage(),
+            ], 422);
+        }
     }
 }

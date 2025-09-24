@@ -36,6 +36,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Purchase Product Detail
     Route::post('/purchase-products/detail', [PurchaseProductController::class, 'getDetail']);
 
+    // Get Purchase Product Payment
+    Route::post('/purchase-products/payment', [PurchaseProductController::class, 'updatePayment']);
+
     // Get Service
     Route::get('/service', [ServiceController::class, 'getService']);
 
