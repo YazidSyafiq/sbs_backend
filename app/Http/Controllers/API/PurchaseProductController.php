@@ -229,6 +229,7 @@ class PurchaseProductController extends Controller
 
             // Update purchase product
             $purchaseProduct->status_paid = 'paid';
+            $purchaseProduct->status = 'Requested';
             $purchaseProduct->bukti_tf = $path;
 
             if ($purchaseProduct->save()) {
