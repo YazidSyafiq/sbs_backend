@@ -203,7 +203,7 @@ class ServicePurchaseResource extends Resource
                                     ->live()
                                     ->placeholder('Select Technician')
                                     ->columnSpanFull()
-                                    ->hidden(fn (Get $get) => (($get('../../status') === 'Draft' || $get('../../status') === 'Requested')))
+                                    ->hidden(fn (Get $get) => ($get('../../status') === 'Draft' || ($get('../../status') === 'Requested' && Auth::user()->hasRole('User')))
                                     ->disabled(fn (Get $get) => $get('../../status') === 'Approved' || $get('../../status') === 'In Progress' ||  $get('../../status') === 'Done' ||  $get('../../status') === 'Cancelled' || Auth::user()->hasRole('User'))
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         if ($state) {
