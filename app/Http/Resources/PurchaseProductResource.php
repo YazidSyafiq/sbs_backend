@@ -46,6 +46,8 @@ class PurchaseProductResource extends JsonResource
             'total_amount' => $this->formatPrice($this->total_amount),
             'notes' => $this->notes,
             'bukti_tf' => $this->bukti_tf ? url('storage/'. $this->bukti_tf) : null,
+            'invoice_url' => url('purchase-product/' . $this->id . '/invoice'),
+            'faktur_url' => url('purchase-product/' . $this->id . '/faktur'),
             'items' => PurchaseProductItemResource::collection($this->whenLoaded('items')),
         ];
     }
