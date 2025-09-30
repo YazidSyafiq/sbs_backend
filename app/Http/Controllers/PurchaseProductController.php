@@ -21,20 +21,47 @@ class PurchaseProductController extends Controller
         ];
     }
 
-    public function invoice(PurchaseProduct $purchaseProduct)
+    public function invoice(Request $request, PurchaseProduct $purchaseProduct)
     {
         $purchaseProduct->load(['user.branch', 'items.product']);
         $companyInfo = $this->getCompanyInfo();
 
-        return view('purchase-product.invoice', compact('purchaseProduct', 'companyInfo'));
+        // Detect if accessed from Flutter/Mobile
+        $isFromMobile = $this->isMobileAccess($request);
+
+        return view('purchase-product.invoice', compact(
+            'purchaseProduct',
+            'companyInfo',
+            'isFromMobile'
+        ));
     }
 
-    public function faktur(PurchaseProduct $purchaseProduct)
+    public function faktur(Request $request, PurchaseProduct $purchaseProduct)
     {
         $purchaseProduct->load(['user.branch', 'items.product']);
         $companyInfo = $this->getCompanyInfo();
 
-        return view('purchase-product.faktur', compact('purchaseProduct', 'companyInfo'));
+        // Detect if accessed from Flutter/Mobile
+        $isFromMobile = $this->isMobileAccess($request);
+
+        return view('purchase-product.faktur', compact(
+            'purchaseProduct',
+            'companyInfo',
+            'isFromMobile'
+        ));
+    }
+
+    /**
+     * Detect if request is from mobile/Flutter app
+     */
+    private function isMobileAccess(Request $request)
+    {
+        // Method 1: Check for query parameter
+        if ($request->has('mobile') || $request->has('flutter')) {
+            return true;
+        }
+
+        return false;
     }
 
     public function report(Request $request)
