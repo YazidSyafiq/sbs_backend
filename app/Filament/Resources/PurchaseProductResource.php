@@ -303,7 +303,7 @@ class PurchaseProductResource extends Resource
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_product')
-                            ->required(function (string $context, ?ServicePurchase $record = null) {
+                            ->required(function (string $context, ?PurchaseProduct $record = null) {
                                 // Saat create, tidak required
                                 if ($context === 'create') {
                                     return true;
