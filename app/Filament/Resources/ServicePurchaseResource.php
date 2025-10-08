@@ -95,6 +95,7 @@ class ServicePurchaseResource extends Resource
                             ->placeholder('Select Type Purchase')
                             ->searchable()
                             ->preload()
+                            ->live() // Pastikan ini ada
                             ->disabled(fn (Get $get) => $get('status') !== 'Draft')
                             ->dehydrated()
                             ->required(),
@@ -278,7 +279,8 @@ class ServicePurchaseResource extends Resource
                     ]),
                 Forms\Components\Section::make('Payment Information')
                     ->columns(1)
-                    ->hidden(fn (string $context) => $context === 'create')
+                    ->hidden(fn (Get $get) => $get('type_po') !== 'cash')
+                    ->live()
                     ->schema([
                         Forms\Components\Select::make('status_paid')
                             ->options([
@@ -299,7 +301,17 @@ class ServicePurchaseResource extends Resource
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_product')
-                            ->required(function (ServicePurchase $record) {
+                            ->required(function (string $context, ?ServicePurchase $record = null) {
+                                // Saat create, tidak required
+                                if ($context === 'create') {
+                                    return true;
+                                }
+
+                                // Jika record tidak ada, tidak required
+                                if (!$record) {
+                                    return true;
+                                }
+
                                 $user = Auth::user();
 
                                 // Jika status Draft, semua bisa cancel

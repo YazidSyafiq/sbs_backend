@@ -70,6 +70,7 @@ class PurchaseProductSupplierResource extends Resource
                             ->placeholder('Select Type Purchase')
                             ->searchable()
                             ->preload()
+                            ->live()
                             ->disabled(fn (Get $get) => $get('status') !== 'Requested')
                             ->dehydrated()
                             ->required(),
@@ -217,7 +218,7 @@ class PurchaseProductSupplierResource extends Resource
                     ]),
                 Forms\Components\Section::make('Payment Information')
                     ->columns(1)
-                    ->hidden(fn (string $context) => $context === 'create')
+                    ->hidden(fn (Get $get) => $get('type_po') !== 'cash')
                     ->schema([
                         Forms\Components\Select::make('status_paid')
                             ->options([

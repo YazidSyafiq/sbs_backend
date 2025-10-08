@@ -94,6 +94,7 @@ class PurchaseProductResource extends Resource
                             ->placeholder('Select Type Purchase')
                             ->searchable()
                             ->preload()
+                            ->live()
                             ->disabled(fn (Get $get) => $get('status') !== 'Draft')
                             ->dehydrated()
                             ->required(),
@@ -281,7 +282,7 @@ class PurchaseProductResource extends Resource
                     ]),
                 Forms\Components\Section::make('Payment Information')
                     ->columns(1)
-                    ->hidden(fn (string $context) => $context === 'create')
+                    ->hidden(fn (Get $get) => $get('type_po') !== 'cash')
                     ->schema([
                         Forms\Components\Select::make('status_paid')
                             ->options([
@@ -302,7 +303,17 @@ class PurchaseProductResource extends Resource
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_product')
-                            ->required(function (PurchaseProduct $record) {
+                            ->required(function (string $context, ?ServicePurchase $record = null) {
+                                // Saat create, tidak required
+                                if ($context === 'create') {
+                                    return true;
+                                }
+
+                                // Jika record tidak ada, tidak required
+                                if (!$record) {
+                                    return true;
+                                }
+
                                 $user = Auth::user();
 
                                 // Jika status Draft, semua bisa cancel
@@ -313,7 +324,7 @@ class PurchaseProductResource extends Resource
                                 // Jika status Requested
                                 if ($record->status !== 'Draft') {
                                     // Hanya credit PO yang bisa di-cancel saat status Requested
-                                    if ($record->type_po === 'credit' && $record->status === 'Received') {
+                                    if ($record->type_po === 'credit' && $record->status === 'Done') {
                                         return true;
                                     }
 
