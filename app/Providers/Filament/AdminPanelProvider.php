@@ -17,6 +17,9 @@ use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Http\Request;
+use Filament\View\PanelsRenderHook;
+use Filament\Enums\ThemeMode;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -27,9 +30,33 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
+            ->defaultThemeMode(ThemeMode::Dark)
+            ->brandLogo(asset('default/images/img_logo_dark.png'))
+            ->darkModeBrandLogo(asset('default/images/img_logo.png'))
+            ->brandLogoHeight(function (Request $request): string {
+                if ($request->route()->getName() === 'filament.admin.auth.login') {
+                    return '100px';
+                }
+
+                return '50px';
+            })
+            ->renderHook(
+                PanelsRenderHook::AUTH_LOGIN_FORM_AFTER,
+                fn (): string => view('filament.components.login-footer')->render()
+            )
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => '#FDB515',
+                'success' => '#4ECB25',
+                'slate' => '#64748B',     // Abu-abu gelap untuk Draft
+                'amber' => '#F59E0B',     // Kuning keemasan untuk Requested
+                'blue' => '#3B82F6',      // Biru untuk Processing
+                'purple' => '#8B5CF6',    // Ungu untuk Shipped
+                'green' => '#10B981',     // Hijau untuk Received
+                'emerald' => '#059669',   // Hijau emerald untuk Done
+                'red' => '#EF4444',       // Merah untuk Cancelled
             ])
+            ->font('Poppins')
+            ->favicon(asset('default/images/img_logo.png'))
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -53,6 +80,9 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+            ])
+            ->plugins([
+                \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),
             ]);
     }
 }

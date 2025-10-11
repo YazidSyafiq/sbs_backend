@@ -1,7 +1,53 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PurchaseProductController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\PurchaseServiceController;
+use App\Http\Controllers\PurchaseProductSupplierController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\TechnicianController;
+use App\Http\Controllers\AllTransactionController;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect('admin/login');
 });
+
+// routes/web.php
+Route::get('/purchase-product/{purchaseProduct}/invoice', [PurchaseProductController::class, 'invoice'])->name('purchase-product.invoice');
+Route::get('/purchase-product/{purchaseProduct}/faktur', [PurchaseProductController::class, 'faktur'])->name('purchase-product.faktur');
+Route::get('/purchase-service/{purchaseService}/invoice', [PurchaseServiceController::class, 'invoice'])->name('purchase-service.invoice');
+Route::get('/purchase-service/{purchaseService}/faktur', [PurchaseServiceController::class, 'faktur'])->name('purchase-service.faktur');
+Route::get('/purchase-supplier/{purchaseProduct}/faktur-supplier', [PurchaseProductSupplierController::class, 'faktur'])->name('purchase-product-supplier.faktur');
+
+// Report routes
+Route::get('/purchase-service/report', [PurchaseServiceController::class, 'report'])
+    ->name('purchase-service.report')
+    ->middleware('auth');
+
+Route::get('/purchase-product-supplier/report', [PurchaseProductSupplierController::class, 'report'])
+    ->name('purchase-product-supplier.report')
+    ->middleware('auth');
+
+Route::get('/supplier/report', [SupplierController::class, 'report'])
+    ->name('supplier.report')
+    ->middleware('auth');
+
+Route::get('/technician/report', [TechnicianController::class, 'report'])
+    ->name('technician.report')
+    ->middleware('auth');
+
+// New route for Purchase Product Report
+Route::get('/purchase-product/report', [PurchaseProductController::class, 'report'])
+    ->name('purchase-product.report')
+    ->middleware('auth');
+
+    // Product report route
+Route::get('/product/report', [ProductController::class, 'report'])
+    ->name('product.report')
+    ->middleware('auth');
+
+// All Transaction Report route
+Route::get('/all-transaction/report', [AllTransactionController::class, 'report'])
+    ->name('all-transaction.report')
+    ->middleware('auth');
