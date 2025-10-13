@@ -36,8 +36,26 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Purchase Product Detail
     Route::post('/purchase-products/detail', [PurchaseProductController::class, 'getDetail']);
 
-    // Get Purchase Product Payment
+    // Purchase Product
+    Route::post('/purchase-products/purchase', [PurchaseProductController::class, 'purchaseProduct']);
+
+    // Purchase Product Cancel
+    Route::post('/purchase-products/cancel', [PurchaseProductController::class, 'cancelPurchase']);
+
+    // Purchase Product Payment
     Route::post('/purchase-products/payment', [PurchaseProductController::class, 'updatePayment']);
+
+    // Purchase Product Process
+    Route::post('/purchase-products/process', [PurchaseProductController::class, 'processPurchase']);
+
+    // Purchase Product Ship
+    Route::post('/purchase-products/ship', [PurchaseProductController::class, 'shipPurchase']);
+
+    // Purchase Product Receive
+    Route::post('/purchase-products/receive', [PurchaseProductController::class, 'receivePurchase']);
+
+    // Purchase Product Complete
+    Route::post('/purchase-products/complete', [PurchaseProductController::class, 'completePurchase']);
 
     // Get Service
     Route::get('/service', [ServiceController::class, 'getService']);
