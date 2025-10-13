@@ -23,7 +23,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with('user');
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             // User dengan role 'user' hanya bisa lihat data sesuai branch nya
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
@@ -122,7 +122,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -257,7 +257,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -315,7 +315,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -430,7 +430,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -529,7 +529,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -612,7 +612,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
@@ -667,7 +667,7 @@ class PurchaseProductController extends Controller
         $query = PurchaseProduct::with(['user', 'items.product']);
 
         // Filter berdasarkan role
-        if ($user->hasRole('user')) {
+        if ($user->hasRole('User')) {
             $query->whereHas('user', function($q) use ($user) {
                 $q->where('branch_id', $user->branch_id);
             });
