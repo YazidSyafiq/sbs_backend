@@ -70,4 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Get Purchase Service Detail
     Route::post('/purchase-services/detail', [PurchaseServiceController::class, 'getDetail']);
+
+    // Update Technician ID Purchase Service Item
+    Route::post('/purchase-services/technician', [PurchaseServiceController::class, 'selectTechnician']);
 });

@@ -5,6 +5,8 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\ServicePurchase;
+use App\Models\ServicePurchaseItem;
+use App\Models\Technician;
 use App\Http\Resources\PurchaseServiceResource;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -138,6 +140,44 @@ class PurchaseServiceController extends Controller
             'success' => true,
             'data' => new PurchaseServiceResource($purchaseService),
             'message' => 'Purchase Service Detail Retrieved Successfully'
+        ]);
+    }
+
+    /**
+     * Select Technician for Service Purchase Item
+     */
+    public function selectTechnician(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'item_id' => 'required|integer',
+            'technician_id' => 'required|integer',
+        ], [
+            'item_id.required' => 'Item ID Is Required.',
+            'technician_id.required' => 'Technician ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        // Get service purchase item
+        $purchaseItem = ServicePurchaseItem::find($request->item_id);
+
+        // Get Technician
+        $technician = Technician::find($request->technician_id);
+
+        // Update technician_id
+        $purchaseItem->technician_id = $request->technician_id;
+        $purchaseItem->cost_price = $technician->price;
+
+        $purchaseItem->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Technician Selected Successfully'
         ]);
     }
 }
