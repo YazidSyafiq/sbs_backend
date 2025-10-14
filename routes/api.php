@@ -7,6 +7,7 @@ use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
 use  App\Http\Controllers\API\PurchaseProductController;
 use  App\Http\Controllers\API\ServiceController;
+use  App\Http\Controllers\API\TechnicianController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
@@ -59,5 +60,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Get Service
     Route::get('/service', [ServiceController::class, 'getService']);
+
+    // Get Technician
+    Route::get('/technician', [TechnicianController::class, 'getTechnician']);
 
 });
