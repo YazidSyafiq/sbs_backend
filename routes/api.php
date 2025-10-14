@@ -6,6 +6,7 @@ use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
 use  App\Http\Controllers\API\PurchaseProductController;
+use  App\Http\Controllers\API\PurchaseServiceController;
 use  App\Http\Controllers\API\ServiceController;
 use  App\Http\Controllers\API\TechnicianController;
 
@@ -64,4 +65,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Technician
     Route::get('/technician', [TechnicianController::class, 'getTechnician']);
 
+    // Get Purchase Service List
+    Route::post('/purchase-services/list', [PurchaseServiceController::class, 'getList']);
+
+    // Get Purchase Service Detail
+    Route::post('/purchase-services/detail', [PurchaseServiceController::class, 'getDetail']);
 });
