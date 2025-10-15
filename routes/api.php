@@ -6,7 +6,9 @@ use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
 use  App\Http\Controllers\API\PurchaseProductController;
+use  App\Http\Controllers\API\PurchaseServiceController;
 use  App\Http\Controllers\API\ServiceController;
+use  App\Http\Controllers\API\TechnicianController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
@@ -36,10 +38,42 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Purchase Product Detail
     Route::post('/purchase-products/detail', [PurchaseProductController::class, 'getDetail']);
 
-    // Get Purchase Product Payment
+    // Purchase Product
+    Route::post('/purchase-products/purchase', [PurchaseProductController::class, 'purchaseProduct']);
+
+    // Purchase Product Cancel
+    Route::post('/purchase-products/cancel', [PurchaseProductController::class, 'cancelPurchase']);
+
+    // Purchase Product Payment
     Route::post('/purchase-products/payment', [PurchaseProductController::class, 'updatePayment']);
+
+    // Purchase Product Process
+    Route::post('/purchase-products/process', [PurchaseProductController::class, 'processPurchase']);
+
+    // Purchase Product Ship
+    Route::post('/purchase-products/ship', [PurchaseProductController::class, 'shipPurchase']);
+
+    // Purchase Product Receive
+    Route::post('/purchase-products/receive', [PurchaseProductController::class, 'receivePurchase']);
+
+    // Purchase Product Complete
+    Route::post('/purchase-products/complete', [PurchaseProductController::class, 'completePurchase']);
 
     // Get Service
     Route::get('/service', [ServiceController::class, 'getService']);
 
+    // Get Technician
+    Route::get('/technician', [TechnicianController::class, 'getTechnician']);
+
+    // Get Purchase Service List
+    Route::post('/purchase-services/list', [PurchaseServiceController::class, 'getList']);
+
+    // Get Purchase Service Detail
+    Route::post('/purchase-services/detail', [PurchaseServiceController::class, 'getDetail']);
+
+    // Update Technician ID Purchase Service Item
+    Route::post('/purchase-services/technician', [PurchaseServiceController::class, 'selectTechnician']);
+
+    // Purchase Service Payment
+    Route::post('/purchase-services/payment', [PurchaseServiceController::class, 'updatePayment']);
 });
