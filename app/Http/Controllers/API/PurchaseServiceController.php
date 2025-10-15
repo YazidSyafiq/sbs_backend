@@ -279,7 +279,7 @@ class PurchaseServiceController extends Controller
             if ($purchaseService->save()) {
                 return response()->json([
                     'success' => true,
-                    'data' => new PurchaseProductResource($purchaseService),
+                    'data' => new PurchaseServiceResource($purchaseService),
                     'message' => 'Payment Updated Successfully'
                 ]);
             } else {
