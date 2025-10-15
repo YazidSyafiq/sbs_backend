@@ -223,7 +223,8 @@ class PurchaseProductController extends Controller
             ]);
         }
 
-        // Total amount sudah dihitung otomatis oleh model melalui boot method
+        // Hitung total amount setelah semua items ditambahkan
+        $purchaseProduct->calculateTotal();
 
         // Load relationships for response
         $purchaseProduct->load(['user', 'items.product']);

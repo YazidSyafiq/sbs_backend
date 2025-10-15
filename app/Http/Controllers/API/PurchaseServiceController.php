@@ -144,6 +144,92 @@ class PurchaseServiceController extends Controller
     }
 
     /**
+     * Create new purchase service
+     */
+    public function purchaseService(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'order_date' => 'required|date',
+            'type_po' => 'required|in:cash,credit',
+            'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.service_id' => 'required|integer|exists:services,id',
+        ], [
+            'name.required' => 'PO Name Is Required.',
+            'order_date.required' => 'Order Date Is Required.',
+            'order_date.date' => 'Order Date must be a valid date.',
+            'type_po.required' => 'PO Type Is Required.',
+            'type_po.in' => 'PO Type must be either cash or credit.',
+            'items.required' => 'At least one item is required.',
+            'items.min' => 'At least one item is required.',
+            'items.*.service_id.required' => 'Product ID Is Required.',
+            'items.*.service_id.exists' => 'Selected Product Not Found.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+
+        // Generate PO Number
+        $poNumber = ServicePurchase::generatePoNumber($user->id, $request->order_date);
+
+        // Determine initial status based on type_po
+        $initialStatus = $request->type_po === 'credit' ? 'Requested' : 'Draft';
+
+        // Create Purchase Product
+        $purchaseService = ServicePurchase::create([
+            'po_number' => $poNumber,
+            'name' => $request->name,
+            'user_id' => $user->id,
+            'order_date' => $request->order_date,
+            'status' => $initialStatus, // Status berdasarkan type_po
+            'type_po' => $request->type_po,
+            'status_paid' => 'unpaid',
+            'notes' => $request->notes,
+            'total_amount' => 0, // Will be calculated by model
+        ]);
+
+        // Add items dengan unit_price dari Product
+        foreach ($request->items as $item) {
+            // Get service untuk ambil price
+            $service = Service::find($item['service_id']);
+
+            if (!$service) {
+                // Hapus PO yang sudah terlanjur dibuat jika service tidak ditemukan
+                $purchaseService->delete();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Service with ID ' . $item['service_id'] . ' not found'
+                ], 422);
+            }
+
+            $purchaseService->items()->create([
+                'service_id' => $item['service_id'],
+                'selling_price' => $service->price, // Ambil dari service
+            ]);
+        }
+
+        // Hitung total amount setelah semua items ditambahkan
+        $purchaseService->calculateTotal();
+
+        // Load relationships for response
+        $purchaseService->load(['user', 'items.product']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
+            'message' => 'Purchase Order Created Successfully'
+        ]);
+    }
+
+    /**
      * Select Technician for Service Purchase Item
      */
     public function selectTechnician(Request $request)
