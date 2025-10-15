@@ -512,11 +512,10 @@ class PurchaseProductController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'id' => 'required|integer',
-            'expected_delivery_date' => 'nullable|date|after:today',
+            'expected_delivery_date' => 'nullable|date',
         ], [
             'id.required' => 'ID Is Required.',
             'expected_delivery_date.date' => 'Expected Delivery Date must be a valid date.',
-            'expected_delivery_date.after' => 'Expected Delivery Date must be after today.',
         ]);
 
         if ($validator->fails()) {

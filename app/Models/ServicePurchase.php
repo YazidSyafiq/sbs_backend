@@ -230,7 +230,7 @@ class ServicePurchase extends Model
 
         // Cek apakah name sudah diisi
         if (empty($this->expected_proccess_date)) {
-            $validationErrors[] = 'Expected proccess date must be set before proccess';
+            $validationErrors[] = 'Expected proccess date must be set before progress';
         }
 
         return [

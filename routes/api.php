@@ -79,4 +79,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Purchase Service Payment
     Route::post('/purchase-services/payment', [PurchaseServiceController::class, 'updatePayment']);
+
+    // Purchase Service Cancel
+    Route::post('/purchase-services/cancel', [PurchaseServiceController::class, 'cancelPurchase']);
+
+    // Purchase Service Approve
+    Route::post('/purchase-services/approve', [PurchaseServiceController::class, 'approvePurchase']);
+
+    // Purchase Service Progress
+    Route::post('/purchase-services/progress', [PurchaseServiceController::class, 'progressPurchase']);
+
+    // Purchase Service Complete
+    Route::post('/purchase-services/complete', [PurchaseServiceController::class, 'completePurchase']);
 });

@@ -231,6 +231,61 @@ class PurchaseServiceController extends Controller
     }
 
     /**
+     * Cancel purchase service (only for Draft and Requested status)
+     */
+    public function cancelPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.services']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if PO can be cancelled (only Draft and Requested status can be cancelled)
+        if (!in_array($purchaseService->status, ['Draft', 'Requested'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Draft or Requested Purchase Orders can be cancelled. Current status: ' . $purchaseService->status
+            ], 422);
+        }
+
+        // Cancel the purchase order
+        $purchaseService->cancel();
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
+            'message' => 'Purchase Order Cancelled Successfully'
+        ]);
+    }
+
+    /**
      * Select Technician for Service Purchase Item
      */
     public function selectTechnician(Request $request)
@@ -384,5 +439,248 @@ class PurchaseServiceController extends Controller
                 'message' => 'Error Processing Payment Receipt: ' . $e->getMessage(),
             ], 422);
         }
+    }
+
+    /**
+     * Approve purchase order (change status to Approved)
+     */
+    public function approvePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for approve
+        if ($purchaseService->status !== 'Requested') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Requested" status to be approved'
+            ], 422);
+        }
+
+        // Check if can be approved
+        $processCheck = $purchaseService->canBeApproved();
+
+        if (!$processCheck['can_approve']) {
+            $message = 'Cannot approve this Purchase Order. ';
+
+            // Add validation errors
+            if (!empty($processCheck['validation_errors'])) {
+                $message .= ' ' . implode('. ', $processCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $processCheck
+            ], 422);
+        }
+
+        // Approve the purchase order
+        if ($purchaseService->approve()) {
+            // Reload untuk mendapatkan data cost analysis yang baru di-set
+            $purchaseService->load(['user', 'items.service']);
+
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Approved Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Approve Purchase Order'
+        ], 422);
+    }
+
+    /**
+     * Progress purchase order (change status to Shipped)
+     */
+    public function progressPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'expected_proccess_date' => 'nullable|date',
+        ], [
+            'id.required' => 'ID Is Required.',
+            'expected_proccess_date.date' => 'Expected Process Date must be a valid date.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for progress
+        if ($purchaseService->status !== 'Approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Approved" status to be shipped'
+            ], 422);
+        }
+
+        // Update expected process date if provided
+        if ($request->has('expected_proccess_date')) {
+            $purchaseService->expected_proccess_date = $request->expected_proccess_date;
+            $purchaseService->save();
+        }
+
+        // Check if can be progress
+        $progressCheck = $purchaseService->canBeProgress();
+
+        if (!$progressCheck['can_proccess']) {
+            $message = 'Cannot Progress this Purchase Order. ';
+
+            if (!empty($progressCheck['validation_errors'])) {
+                $message .= implode('. ', $progressCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $progressCheck
+            ], 422);
+        }
+
+        // Progress the purchase order
+        if ($purchaseService->progress()) {
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Progress Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Progress Purchase Order'
+        ], 422);
+    }
+
+    /**
+     * Complete purchase order (change status to Done)
+     */
+    public function completePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for completion
+        if ($purchaseService->status !== 'In Progress') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "In Progress" status to be completed'
+            ], 422);
+        }
+
+        // Check if can be completed
+        $completeCheck = $purchaseService->canBeCompleted();
+
+        if (!$completeCheck['can_complete']) {
+            $message = 'Cannot complete this Purchase Order. ';
+
+            if (!empty($completeCheck['validation_errors'])) {
+                $message .= implode('. ', $completeCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $completeCheck
+            ], 422);
+        }
+
+        // Complete the purchase order
+        if ($purchaseService->done()) {
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Completed Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Complete Purchase Order'
+        ], 422);
     }
 }
