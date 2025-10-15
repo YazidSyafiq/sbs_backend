@@ -73,4 +73,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Update Technician ID Purchase Service Item
     Route::post('/purchase-services/technician', [PurchaseServiceController::class, 'selectTechnician']);
+
+    // Purchase Service Payment
+    Route::post('/purchase-services/payment', [PurchaseServiceController::class, 'updatePayment']);
 });

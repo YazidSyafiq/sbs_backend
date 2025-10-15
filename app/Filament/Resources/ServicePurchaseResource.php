@@ -300,7 +300,7 @@ class ServicePurchaseResource extends Resource
                             ->disk('public')
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
-                            ->directory('po_product')
+                            ->directory('po_service')
                             ->required(function (string $context, ?ServicePurchase $record = null) {
                                 // Saat create, tidak required
                                 if ($context === 'create') {
