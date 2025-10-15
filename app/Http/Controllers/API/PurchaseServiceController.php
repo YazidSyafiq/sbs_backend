@@ -249,7 +249,7 @@ class PurchaseServiceController extends Controller
         }
 
         $user = auth()->user();
-        $query = ServicePurchase::with(['user', 'items.services']);
+        $query = ServicePurchase::with(['user', 'items.service']);
 
         // Filter berdasarkan role
         if ($user->hasRole('User')) {
