@@ -221,7 +221,7 @@ class PurchaseServiceController extends Controller
         $purchaseService->calculateTotal();
 
         // Load relationships for response
-        $purchaseService->load(['user', 'items.product']);
+        $purchaseService->load(['user', 'items.service']);
 
         return response()->json([
             'success' => true,
