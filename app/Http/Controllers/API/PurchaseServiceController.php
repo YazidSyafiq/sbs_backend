@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Service;
 use App\Models\ServicePurchase;
 use App\Models\ServicePurchaseItem;
 use App\Models\Technician;
