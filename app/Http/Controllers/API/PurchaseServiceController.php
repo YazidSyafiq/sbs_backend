@@ -293,9 +293,11 @@ class PurchaseServiceController extends Controller
         $validator = Validator::make($request->all(), [
             'item_id' => 'required|integer',
             'technician_id' => 'required|integer',
+            'purchase_id' => 'required|integer',
         ], [
             'item_id.required' => 'Item ID Is Required.',
             'technician_id.required' => 'Technician ID Is Required.',
+            'purchase_id.required' => 'Purchase ID Is Required.',
         ]);
 
         if ($validator->fails()) {
@@ -304,6 +306,8 @@ class PurchaseServiceController extends Controller
                 'message' => $validator->errors()->first(),
             ], 422);
         }
+        // Query
+        $query = ServicePurchase::with(['user', 'items.service']);
 
         // Get service purchase item
         $purchaseItem = ServicePurchaseItem::find($request->item_id);
@@ -317,8 +321,13 @@ class PurchaseServiceController extends Controller
 
         $purchaseItem->save();
 
+        $purchaseService = $query->find($request->purchase_id);
+
+        $purchaseService->load(['user', 'items.service']);
+
         return response()->json([
             'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
             'message' => 'Technician Selected Successfully'
         ]);
     }
