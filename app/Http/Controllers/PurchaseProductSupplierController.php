@@ -22,12 +22,26 @@ class PurchaseProductSupplierController extends Controller
         ];
     }
 
-    public function faktur(PurchaseProductSupplier $purchaseProduct)
+    /**
+     * Detect if request is from mobile/Flutter app
+     */
+    private function isMobileAccess(Request $request)
+    {
+        // Method 1: Check for query parameter
+        if ($request->has('mobile') || $request->has('flutter')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function faktur(Request $request, PurchaseProductSupplier $purchaseProduct)
     {
         $purchaseProduct->load([]);
         $companyInfo = $this->getCompanyInfo();
+        $isFromMobile = $this->isMobileAccess($request);
 
-        return view('purchase-product-supplier.faktur', compact('purchaseProduct', 'companyInfo'));
+        return view('purchase-product-supplier.faktur', compact('purchaseProduct', 'companyInfo', 'isFromMobile'));
     }
 
     public function report(Request $request)

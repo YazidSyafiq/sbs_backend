@@ -527,12 +527,14 @@
         Generating PDF...
     </div>
 
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-        <button class="btn btn-download" onclick="downloadInvoicePDF()">
-            <span>📄</span> Download PDF
-        </button>
-    </div>
+    @if (!$isFromMobile)
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-download" onclick="downloadInvoicePDF()">
+                <span>📄</span> Download PDF
+            </button>
+        </div>
+    @endif
 
     <div class="container" id="invoice-content">
         <!-- Header dengan warna baru -->
