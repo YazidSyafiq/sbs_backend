@@ -8,6 +8,7 @@ use  App\Http\Controllers\API\ProductController;
 use  App\Http\Controllers\API\PurchaseProductController;
 use  App\Http\Controllers\API\PurchaseServiceController;
 use  App\Http\Controllers\API\ServiceController;
+use  App\Http\Controllers\API\SupplierController;
 use  App\Http\Controllers\API\TechnicianController;
 
 // Login
@@ -91,4 +92,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Purchase Service Complete
     Route::post('/purchase-services/complete', [PurchaseServiceController::class, 'completePurchase']);
+
+    // Supplier
+    Route::get('/supplier', [SupplierController::class, 'getSupplier']);
 });
