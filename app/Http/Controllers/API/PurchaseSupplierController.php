@@ -17,7 +17,7 @@ class PurchaseSupplierController extends Controller
     public function getList(Request $request)
     {
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with('user');
+        $query = PurchaseProductSupplier::with(['user', 'supplier']);
 
         // Optional filters dari request body
         if ($request->status) {
@@ -111,7 +111,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with('user');
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
 
         $purchaseProduct = $query->find($request->id);
 

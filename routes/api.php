@@ -98,8 +98,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/supplier', [SupplierController::class, 'getSupplier']);
 
     // Get Purchase Supplier List
-    Route::post('/purchase-suppliers/list', [PurchaseSupplierController::class, 'getList']);
+    Route::post('/purchase-suppliers/list', [PurchaseSupplierController::class, 'getList'])
+        ->name('purchase-suppliers.getList');;
 
     // Get Purchase Supplier Detail
-    Route::post('/purchase-suppliers/detail', [PurchaseSupplierController::class, 'getDetail']);
+    Route::post('/purchase-suppliers/detail', [PurchaseSupplierController::class, 'getDetail'])
+        ->name('purchase-suppliers.getDetail');
 });
