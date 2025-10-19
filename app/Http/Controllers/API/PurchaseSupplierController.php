@@ -113,9 +113,9 @@ class PurchaseSupplierController extends Controller
         $user = auth()->user();
         $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
 
-        $purchaseProduct = $query->find($request->id);
+        $purchaseSupplier = $query->find($request->id);
 
-        if (!$purchaseProduct) {
+        if (!$purchaseSupplier) {
             return response()->json([
                 'success' => false,
                 'message' => 'Purchase Supplier Not Found Or Access Denied'
@@ -124,8 +124,115 @@ class PurchaseSupplierController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => new PurchaseSupplierResource($purchaseProduct),
+            'data' => new PurchaseSupplierResource($purchaseSupplier),
             'message' => 'Purchase Supplier Detail Retrieved Successfully'
         ]);
+    }
+
+    /**
+     * Update payment status and upload payment receipt
+     */
+    public function updatePayment(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'bukti_tf' => 'required|string',
+        ], [
+            'id.required' => 'ID Is Required.',
+            'bukti_tf.required' => 'Payment Receipt Is Required.'
+        ]);
+
+        // Jika validasi gagal, kembalikan response dengan format yang diinginkan
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+
+        $purchaseSupplier = $query->find($request->id);
+
+        if (!$purchaseSupplier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Supplier Not Found Or Access Denied'
+            ], 404);
+        }
+
+        try {
+            // Handle base64 image upload
+            $imageData = $request->bukti_tf;
+
+            // Check if it's a data URL (data:image/jpeg;base64,...)
+            if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
+                // Extract the base64 encoded binary data
+                $imageData = substr($imageData, strpos($imageData, ',') + 1);
+                $type = strtolower($type[1]); // jpg, png, gif
+            } else {
+                // If no data URL prefix, assume it's raw base64
+                $type = 'jpg'; // default type
+            }
+
+            // Validate image type
+            if (!in_array($type, ['jpg', 'jpeg', 'gif', 'png'])) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Image Type. Only JPG, JPEG, PNG And GIF Are Allowed.',
+                ], 422);
+            }
+
+            // Decode base64
+            $decodedData = base64_decode($imageData);
+
+            if ($decodedData === false) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid Base64 Image Data.',
+                ], 422);
+            }
+
+            // Generate filename using PO number
+            $fileName = $purchaseSupplier->po_number . '_' . time() . '.' . $type;
+            $path = 'po_supplier/' . $fileName;
+
+            // Store the image
+            $stored = Storage::disk('public')->put($path, $decodedData);
+
+            if (!$stored) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed To Store Payment Receipt.',
+                ], 422);
+            }
+
+            // Update purchase supplier
+            $purchaseSupplier->status_paid = 'paid';
+
+            $purchaseSupplier->bukti_tf = $path;
+
+            if ($purchaseSupplier->save()) {
+                return response()->json([
+                    'success' => true,
+                    'data' => new PurchaseSupplierResource($purchaseSupplier),
+                    'message' => 'Payment Updated Successfully'
+                ]);
+            } else {
+                // If save failed, delete the uploaded file
+                Storage::disk('public')->delete($path);
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed To Update Payment Status'
+                ], 422);
+            }
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error Processing Payment Receipt: ' . $e->getMessage(),
+            ], 422);
+        }
     }
 }
