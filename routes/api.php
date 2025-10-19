@@ -105,9 +105,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/purchase-suppliers/detail', [PurchaseSupplierController::class, 'getDetail'])
         ->name('purchase-suppliers.getDetail');
 
+    // Purchase Supplier
+    Route::post('/purchase-suppliers/purchase', [PurchaseSupplierController::class, 'purchaseSupplier']);
+
     // Purchase Supplier Payment
     Route::post('/purchase-suppliers/payment', [PurchaseSupplierController::class, 'updatePayment']);
 
     // Purchase Supplier Cancel
     Route::post('/purchase-suppliers/cancel', [PurchaseSupplierController::class, 'cancelPurchase']);
+
+    // Purchase Supplier Process
+    Route::post('/purchase-suppliers/process', [PurchaseSupplierController::class, 'processPurchase']);
+
+    // Purchase Supplier Receive
+    Route::post('/purchase-suppliers/receive', [PurchaseSupplierController::class, 'receivePurchase']);
+
+    // Purchase Supplier Complete
+    Route::post('/purchase-suppliers/complete', [PurchaseSupplierController::class, 'completePurchase']);
 });

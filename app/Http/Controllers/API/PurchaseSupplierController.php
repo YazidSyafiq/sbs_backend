@@ -130,6 +130,77 @@ class PurchaseSupplierController extends Controller
     }
 
     /**
+     * Create new purchase supplier
+     */
+    public function purchaseSupplier(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'order_date' => 'required|date',
+            'type_po' => 'required|in:cash,credit',
+            'supplier_id' => 'required|integer|exists:suppliers,id',
+            'product_id' => 'required|integer|exists:products,id',
+            'quantity' => 'required|integer|min:1',
+            'unit_price' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
+        ], [
+            'name.required' => 'PO Name Is Required.',
+            'order_date.required' => 'Order Date Is Required.',
+            'order_date.date' => 'Order Date must be a valid date.',
+            'type_po.required' => 'PO Type Is Required.',
+            'type_po.in' => 'PO Type must be either cash or credit.',
+            'supplier_id.required' => 'Supplier Is Required.',
+            'supplier_id.exists' => 'Selected Supplier Not Found.',
+            'product_id.required' => 'Product Is Required.',
+            'product_id.exists' => 'Selected Product Not Found.',
+            'quantity.required' => 'Quantity Is Required.',
+            'quantity.min' => 'Quantity must be at least 1.',
+            'unit_price.required' => 'Unit Price Is Required.',
+            'unit_price.min' => 'Unit Price must be at least 0.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+
+        // Generate PO Number menggunakan supplier_id
+        $poNumber = PurchaseProductSupplier::generatePoNumber($request->supplier_id, $request->order_date);
+
+        // Create Purchase Supplier
+        $purchaseSupplier = PurchaseProductSupplier::create([
+            'po_number' => $poNumber,
+            'name' => $request->name,
+            'user_id' => $user->id,
+            'supplier_id' => $request->supplier_id,
+            'product_id' => $request->product_id,
+            'quantity' => $request->quantity,
+            'unit_price' => $request->unit_price,
+            'order_date' => $request->order_date,
+            'type_po' => $request->type_po,
+            'status_paid' => 'unpaid',
+            'notes' => $request->notes,
+            'total_amount' => 0, // Will be calculated
+        ]);
+
+        // Hitung total amount
+        $purchaseSupplier->calculateTotal();
+
+        // Load relationships for response
+        $purchaseSupplier->load(['user', 'supplier', 'product']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseSupplierResource($purchaseSupplier),
+            'message' => 'Purchase Supplier Order Created Successfully'
+        ]);
+    }
+
+    /**
      * Cancel purchase supplier (only for Requested and Processing status)
      */
     public function cancelPurchase(Request $request)
@@ -280,6 +351,172 @@ class PurchaseSupplierController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Error Processing Payment Receipt: ' . $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Process purchase supplier (change status to Processing)
+     */
+    public function processPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+
+        $purchaseSupplier = $query->find($request->id);
+
+        if (!$purchaseSupplier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Supplier Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for processing
+        if ($purchaseSupplier->status !== 'Requested') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Requested" status to be processed'
+            ], 422);
+        }
+
+        try {
+            // Process the purchase order
+            $purchaseSupplier->process();
+
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseSupplierResource($purchaseSupplier),
+                'message' => 'Purchase Order Processed Successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 422);
+        }
+    }
+
+    /**
+     * Mark purchase supplier as received (change status to Received)
+     */
+    public function receivePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'received_date' => 'nullable|date',
+        ], [
+            'id.required' => 'ID Is Required.',
+            'received_date.date' => 'Received Date must be a valid date.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+
+        $purchaseSupplier = $query->find($request->id);
+
+        if (!$purchaseSupplier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Supplier Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for receiving
+        if ($purchaseSupplier->status !== 'Processing') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Processing" status to be received'
+            ], 422);
+        }
+
+        // Update received date if provided
+        if ($request->has('received_date')) {
+            $purchaseSupplier->received_date = $request->received_date;
+            $purchaseSupplier->save();
+        }
+
+        // Mark as received
+        $purchaseSupplier->receive();
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseSupplierResource($purchaseSupplier),
+            'message' => 'Purchase Order Received Successfully'
+        ]);
+    }
+
+    /**
+     * Complete purchase supplier (change status to Done)
+     */
+    public function completePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+
+        $purchaseSupplier = $query->find($request->id);
+
+        if (!$purchaseSupplier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Supplier Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for completion
+        if ($purchaseSupplier->status !== 'Received') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Received" status to be completed'
+            ], 422);
+        }
+
+        try {
+            // Complete the purchase order
+            $purchaseSupplier->done();
+
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseSupplierResource($purchaseSupplier),
+                'message' => 'Purchase Order Completed Successfully'
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
             ], 422);
         }
     }
