@@ -130,6 +130,54 @@ class PurchaseSupplierController extends Controller
     }
 
     /**
+     * Cancel purchase supplier (only for Requested and Processing status)
+     */
+    public function cancelPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+
+        $purchaseSupplier = $query->find($request->id);
+
+        if (!$purchaseSupplier) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Supplier Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if PO can be cancelled (only Requested and Processing status can be cancelled)
+        if (!in_array($purchaseSupplier->status, ['Requested', 'Processing'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Requested and Processing Purchase Orders can be cancelled. Current status: ' . $purchaseSupplier->status
+            ], 422);
+        }
+
+        // Cancel the purchase order
+        $purchaseSupplier->cancel();
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseSupplierResource($purchaseSupplier),
+            'message' => 'Purchase Order Cancelled Successfully'
+        ]);
+    }
+
+    /**
      * Update payment status and upload payment receipt
      */
     public function updatePayment(Request $request)

@@ -107,4 +107,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Purchase Supplier Payment
     Route::post('/purchase-suppliers/payment', [PurchaseSupplierController::class, 'updatePayment']);
+
+    // Purchase Supplier Cancel
+    Route::post('/purchase-suppliers/cancel', [PurchaseSupplierController::class, 'cancelPurchase']);
 });
