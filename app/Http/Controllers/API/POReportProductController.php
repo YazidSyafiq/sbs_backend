@@ -17,20 +17,36 @@ class POReportProductController extends Controller
     {
         $user = auth()->user();
 
-        // Build filters
-        $filters = [
-            'type_po' => $request->type_po,
-            'date_from' => $request->date_from,
-            'date_until' => $request->date_until,
-        ];
+        // Build filters - handle formData format
+        $filters = [];
+
+        // Handle type_po - bisa array atau string
+        if ($request->has('type_po')) {
+            $typePo = $request->type_po;
+            // Jika string, convert ke array
+            if (is_string($typePo) && !empty($typePo)) {
+                $filters['type_po'] = [$typePo];
+            } elseif (is_array($typePo) && !empty($typePo)) {
+                $filters['type_po'] = $typePo;
+            }
+        }
+
+        // Handle date filters
+        if ($request->has('date_from') && !empty($request->date_from)) {
+            $filters['date_from'] = $request->date_from;
+        }
+
+        if ($request->has('date_until') && !empty($request->date_until)) {
+            $filters['date_until'] = $request->date_until;
+        }
 
         // Role-based filtering: User hanya bisa lihat data branch sendiri
         if ($user->hasRole('User')) {
             $filters['branch_id'] = $user->branch_id;
         } else {
             // Admin/SuperAdmin bisa filter by branch atau lihat semua
-            if ($request->has('branch_id') && $request->branch_id) {
-                $filters['branch_id'] = $request->branch_id;
+            if ($request->has('branch_id') && !empty($request->branch_id)) {
+                $filters['branch_id'] = (int)$request->branch_id;
             }
         }
 
@@ -50,20 +66,36 @@ class POReportProductController extends Controller
     {
         $user = auth()->user();
 
-        // Build filters
-        $filters = [
-            'type_po' => $request->type_po,
-            'date_from' => $request->date_from,
-            'date_until' => $request->date_until,
-        ];
+        // Build filters - handle formData format
+        $filters = [];
+
+        // Handle type_po - bisa array atau string
+        if ($request->has('type_po')) {
+            $typePo = $request->type_po;
+            // Jika string, convert ke array
+            if (is_string($typePo) && !empty($typePo)) {
+                $filters['type_po'] = [$typePo];
+            } elseif (is_array($typePo) && !empty($typePo)) {
+                $filters['type_po'] = $typePo;
+            }
+        }
+
+        // Handle date filters
+        if ($request->has('date_from') && !empty($request->date_from)) {
+            $filters['date_from'] = $request->date_from;
+        }
+
+        if ($request->has('date_until') && !empty($request->date_until)) {
+            $filters['date_until'] = $request->date_until;
+        }
 
         // Role-based filtering: User hanya bisa lihat data branch sendiri
         if ($user->hasRole('User')) {
             $filters['branch_id'] = $user->branch_id;
         } else {
             // Admin/SuperAdmin bisa filter by branch atau lihat semua
-            if ($request->has('branch_id') && $request->branch_id) {
-                $filters['branch_id'] = $request->branch_id;
+            if ($request->has('branch_id') && !empty($request->branch_id)) {
+                $filters['branch_id'] = (int)$request->branch_id;
             }
         }
 
