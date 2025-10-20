@@ -11,6 +11,7 @@ use  App\Http\Controllers\API\PurchaseSupplierController;
 use  App\Http\Controllers\API\ServiceController;
 use  App\Http\Controllers\API\SupplierController;
 use  App\Http\Controllers\API\TechnicianController;
+use  App\Http\Controllers\API\POReportProductController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
@@ -122,4 +123,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Purchase Supplier Complete
     Route::post('/purchase-suppliers/complete', [PurchaseSupplierController::class, 'completePurchase']);
+
+    // PO Product Reports
+    Route::post('/reports/po-product/overview', [POReportProductController::class, 'getOverview']);
+    Route::post('/reports/po-product/trends', [POReportProductController::class, 'getTrends']);
 });
