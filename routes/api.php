@@ -34,7 +34,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/profile-update', [ProfileController::class, 'updateProfile']);
 
     // Get Branch
-    Route::post('/branch', [BranchController::class, 'getBranch']);
+    Route::get('/branch', [BranchController::class, 'getBranch']);
 
     // Get Product
     Route::get('/product', [ProductController::class, 'getProduct']);
