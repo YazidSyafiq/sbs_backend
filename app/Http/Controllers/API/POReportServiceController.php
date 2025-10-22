@@ -4,6 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Resources\POReportServiceOverviewResource;
+use App\Http\Resources\POReportServiceTrendResource;
+use App\Models\POReportService;
 
 class POReportServiceController extends Controller
 {
