@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
+use  App\Http\Controllers\API\BranchController;
 use  App\Http\Controllers\API\PurchaseProductController;
 use  App\Http\Controllers\API\PurchaseServiceController;
 use  App\Http\Controllers\API\PurchaseSupplierController;
@@ -31,6 +32,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Update Profile
     Route::post('/profile-update', [ProfileController::class, 'updateProfile']);
+
+    // Get Branch
+    Route::post('/branch', [BranchController::class, 'getBranch']);
 
     // Get Product
     Route::get('/product', [ProductController::class, 'getProduct']);
