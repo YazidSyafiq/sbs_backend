@@ -13,6 +13,7 @@ use  App\Http\Controllers\API\ServiceController;
 use  App\Http\Controllers\API\SupplierController;
 use  App\Http\Controllers\API\TechnicianController;
 use  App\Http\Controllers\API\POReportProductController;
+use  App\Http\Controllers\API\POReportServiceController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
