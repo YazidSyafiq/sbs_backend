@@ -131,4 +131,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // PO Product Reports
     Route::post('/reports/po-product/overview', [POReportProductController::class, 'getOverview']);
     Route::post('/reports/po-product/trends', [POReportProductController::class, 'getTrends']);
+
+    // PO Service Reports
+    Route::post('/reports/po-service/overview', [POReportServiceController::class, 'getOverview']);
+    Route::post('/reports/po-service/trends', [POReportServiceController::class, 'getTrends']);
 });
