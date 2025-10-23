@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Log;
 use App\Models\PurchaseProduct;
 use App\Models\User;
 use App\Mail\PurchaseOrderProductsNotification;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification;
 
 class SendPurchaseOrderEmailJob implements ShouldQueue
 {
@@ -83,8 +85,9 @@ class SendPurchaseOrderEmailJob implements ShouldQueue
                 });
             }
 
-            // Kirim email ke setiap penerima
+            // Kirim email dan notifikasi Firebase ke setiap penerima
             foreach ($recipients as $recipient) {
+                // Kirim Email
                 try {
                     Mail::to($recipient->email)->send(
                         new PurchaseOrderProductsNotification($purchaseProduct)
@@ -103,6 +106,9 @@ class SendPurchaseOrderEmailJob implements ShouldQueue
                         'error' => $e->getMessage()
                     ]);
                 }
+
+                // Kirim Firebase Notification
+                $this->sendFirebaseNotification($purchaseProduct, $recipient);
             }
         } catch (\Exception $e) {
             Log::error("Failed to process PO status email job", [
@@ -111,5 +117,84 @@ class SendPurchaseOrderEmailJob implements ShouldQueue
                 'error' => $e->getMessage()
             ]);
         }
+    }
+
+    protected function sendFirebaseNotification($purchaseProduct, $user)
+    {
+        try {
+            $messaging = app('firebase.messaging');
+
+            // Get user's FCM token
+            $deviceToken = $user->fcm_token;
+
+            if (!$deviceToken) {
+                Log::info("User has no FCM token", [
+                    'user_id' => $user->id,
+                    'email' => $user->email
+                ]);
+                return;
+            }
+
+            // Customize title and body based on status
+            $title = $this->getNotificationTitle($this->status);
+            $body = $this->getNotificationBody($purchaseProduct);
+
+            $notification = Notification::create($title, $body);
+
+            $message = CloudMessage::withTarget('token', $deviceToken)
+                ->withNotification($notification)
+                ->withData([
+                    'id' => (string)$purchaseProduct->id,
+                    'po_number' => $purchaseProduct->po_number,
+                    'status' => $this->status,
+                    'type' => 'purchase_order',
+                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+                ]);
+
+            $messaging->send($message);
+
+            Log::info("Firebase notification sent", [
+                'po_number' => $purchaseProduct->po_number,
+                'status' => $this->status,
+                'user_id' => $user->id
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Firebase Notification Error', [
+                'po_number' => $purchaseProduct->po_number,
+                'user_id' => $user->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    protected function getNotificationTitle($status)
+    {
+        $titles = [
+            'Requested' => 'New Purchase Order',
+            'Processing' => 'PO in Processing',
+            'Shipped' => 'PO Has Been Shipped',
+            'Received' => 'PO Received',
+            'Done' => 'PO Completed',
+            'Cancelled' => 'PO Cancelled'
+        ];
+
+        return $titles[$status] ?? 'Purchase Order Update';
+    }
+
+    protected function getNotificationBody($purchaseProduct)
+    {
+        $status = $this->status;
+        $poNumber = $purchaseProduct->po_number;
+
+        $bodies = [
+            'Requested' => "Purchase Order {$poNumber} has been requested and awaiting approval",
+            'Processing' => "Purchase Order {$poNumber} is now being processed",
+            'Shipped' => "Purchase Order {$poNumber} has been shipped",
+            'Received' => "Purchase Order {$poNumber} has been received",
+            'Done' => "Purchase Order {$poNumber} has been completed",
+            'Cancelled' => "Purchase Order {$poNumber} has been cancelled"
+        ];
+
+        return $bodies[$status] ?? "Purchase Order {$poNumber} status updated to {$status}";
     }
 }

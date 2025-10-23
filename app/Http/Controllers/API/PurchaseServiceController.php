@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Service;
 use App\Models\ServicePurchase;
 use App\Models\ServicePurchaseItem;
 use App\Models\Technician;
@@ -144,16 +145,27 @@ class PurchaseServiceController extends Controller
     }
 
     /**
-     * Select Technician for Service Purchase Item
+     * Create new purchase service
      */
-    public function selectTechnician(Request $request)
+    public function purchaseService(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'item_id' => 'required|integer',
-            'technician_id' => 'required|integer',
+            'name' => 'required|string|max:255',
+            'order_date' => 'required|date',
+            'type_po' => 'required|in:cash,credit',
+            'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.service_id' => 'required|integer|exists:services,id',
         ], [
-            'item_id.required' => 'Item ID Is Required.',
-            'technician_id.required' => 'Technician ID Is Required.',
+            'name.required' => 'PO Name Is Required.',
+            'order_date.required' => 'Order Date Is Required.',
+            'order_date.date' => 'Order Date must be a valid date.',
+            'type_po.required' => 'PO Type Is Required.',
+            'type_po.in' => 'PO Type must be either cash or credit.',
+            'items.required' => 'At least one item is required.',
+            'items.min' => 'At least one item is required.',
+            'items.*.service_id.required' => 'Product ID Is Required.',
+            'items.*.service_id.exists' => 'Selected Product Not Found.',
         ]);
 
         if ($validator->fails()) {
@@ -162,6 +174,140 @@ class PurchaseServiceController extends Controller
                 'message' => $validator->errors()->first(),
             ], 422);
         }
+
+        $user = auth()->user();
+
+        // Generate PO Number
+        $poNumber = ServicePurchase::generatePoNumber($user->id, $request->order_date);
+
+        // Determine initial status based on type_po
+        $initialStatus = $request->type_po === 'credit' ? 'Requested' : 'Draft';
+
+        // Create Purchase Product
+        $purchaseService = ServicePurchase::create([
+            'po_number' => $poNumber,
+            'name' => $request->name,
+            'user_id' => $user->id,
+            'order_date' => $request->order_date,
+            'status' => $initialStatus, // Status berdasarkan type_po
+            'type_po' => $request->type_po,
+            'status_paid' => 'unpaid',
+            'notes' => $request->notes,
+            'total_amount' => 0, // Will be calculated by model
+        ]);
+
+        // Add items dengan unit_price dari Product
+        foreach ($request->items as $item) {
+            // Get service untuk ambil price
+            $service = Service::find($item['service_id']);
+
+            if (!$service) {
+                // Hapus PO yang sudah terlanjur dibuat jika service tidak ditemukan
+                $purchaseService->delete();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Service with ID ' . $item['service_id'] . ' not found'
+                ], 422);
+            }
+
+            $purchaseService->items()->create([
+                'service_id' => $item['service_id'],
+                'selling_price' => $service->price, // Ambil dari service
+            ]);
+        }
+
+        // Hitung total amount setelah semua items ditambahkan
+        $purchaseService->calculateTotal();
+
+        // Load relationships for response
+        $purchaseService->load(['user', 'items.service']);
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
+            'message' => 'Purchase Order Created Successfully'
+        ]);
+    }
+
+    /**
+     * Cancel purchase service (only for Draft and Requested status)
+     */
+    public function cancelPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if PO can be cancelled (only Draft and Requested status can be cancelled)
+        if (!in_array($purchaseService->status, ['Draft', 'Requested'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Only Draft or Requested Purchase Orders can be cancelled. Current status: ' . $purchaseService->status
+            ], 422);
+        }
+
+        // Cancel the purchase order
+        $purchaseService->cancel();
+
+        return response()->json([
+            'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
+            'message' => 'Purchase Order Cancelled Successfully'
+        ]);
+    }
+
+    /**
+     * Select Technician for Service Purchase Item
+     */
+    public function selectTechnician(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'item_id' => 'required|integer',
+            'technician_id' => 'required|integer',
+            'purchase_id' => 'required|integer',
+        ], [
+            'item_id.required' => 'Item ID Is Required.',
+            'technician_id.required' => 'Technician ID Is Required.',
+            'purchase_id.required' => 'Purchase ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+        // Query
+        $query = ServicePurchase::with(['user', 'items.service']);
 
         // Get service purchase item
         $purchaseItem = ServicePurchaseItem::find($request->item_id);
@@ -175,8 +321,13 @@ class PurchaseServiceController extends Controller
 
         $purchaseItem->save();
 
+        $purchaseService = $query->find($request->purchase_id);
+
+        $purchaseService->load(['user', 'items.service']);
+
         return response()->json([
             'success' => true,
+            'data' => new PurchaseServiceResource($purchaseService),
             'message' => 'Technician Selected Successfully'
         ]);
     }
@@ -297,5 +448,248 @@ class PurchaseServiceController extends Controller
                 'message' => 'Error Processing Payment Receipt: ' . $e->getMessage(),
             ], 422);
         }
+    }
+
+    /**
+     * Approve purchase order (change status to Approved)
+     */
+    public function approvePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for approve
+        if ($purchaseService->status !== 'Requested') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Requested" status to be approved'
+            ], 422);
+        }
+
+        // Check if can be approved
+        $processCheck = $purchaseService->canBeApproved();
+
+        if (!$processCheck['can_approve']) {
+            $message = 'Cannot approve this Purchase Order. ';
+
+            // Add validation errors
+            if (!empty($processCheck['validation_errors'])) {
+                $message .= ' ' . implode('. ', $processCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $processCheck
+            ], 422);
+        }
+
+        // Approve the purchase order
+        if ($purchaseService->approve()) {
+            // Reload untuk mendapatkan data cost analysis yang baru di-set
+            $purchaseService->load(['user', 'items.service']);
+
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Approved Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Approve Purchase Order'
+        ], 422);
+    }
+
+    /**
+     * Progress purchase order (change status to Shipped)
+     */
+    public function progressPurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+            'expected_proccess_date' => 'nullable|date',
+        ], [
+            'id.required' => 'ID Is Required.',
+            'expected_proccess_date.date' => 'Expected Process Date must be a valid date.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for progress
+        if ($purchaseService->status !== 'Approved') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "Approved" status to be shipped'
+            ], 422);
+        }
+
+        // Update expected process date if provided
+        if ($request->has('expected_proccess_date')) {
+            $purchaseService->expected_proccess_date = $request->expected_proccess_date;
+            $purchaseService->save();
+        }
+
+        // Check if can be progress
+        $progressCheck = $purchaseService->canBeProgress();
+
+        if (!$progressCheck['can_proccess']) {
+            $message = 'Cannot Progress this Purchase Order. ';
+
+            if (!empty($progressCheck['validation_errors'])) {
+                $message .= implode('. ', $progressCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $progressCheck
+            ], 422);
+        }
+
+        // Progress the purchase order
+        if ($purchaseService->progress()) {
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Progress Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Progress Purchase Order'
+        ], 422);
+    }
+
+    /**
+     * Complete purchase order (change status to Done)
+     */
+    public function completePurchase(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|integer',
+        ], [
+            'id.required' => 'ID Is Required.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+            ], 422);
+        }
+
+        $user = auth()->user();
+        $query = ServicePurchase::with(['user', 'items.service']);
+
+        // Filter berdasarkan role
+        if ($user->hasRole('User')) {
+            $query->whereHas('user', function($q) use ($user) {
+                $q->where('branch_id', $user->branch_id);
+            });
+        }
+
+        $purchaseService = $query->find($request->id);
+
+        if (!$purchaseService) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Service Not Found Or Access Denied'
+            ], 404);
+        }
+
+        // Check if status is valid for completion
+        if ($purchaseService->status !== 'In Progress') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Purchase Order must be in "In Progress" status to be completed'
+            ], 422);
+        }
+
+        // Check if can be completed
+        $completeCheck = $purchaseService->canBeCompleted();
+
+        if (!$completeCheck['can_complete']) {
+            $message = 'Cannot complete this Purchase Order. ';
+
+            if (!empty($completeCheck['validation_errors'])) {
+                $message .= implode('. ', $completeCheck['validation_errors']);
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => $message,
+                'details' => $completeCheck
+            ], 422);
+        }
+
+        // Complete the purchase order
+        if ($purchaseService->done()) {
+            return response()->json([
+                'success' => true,
+                'data' => new PurchaseServiceResource($purchaseService),
+                'message' => 'Purchase Order Completed Successfully'
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Failed To Complete Purchase Order'
+        ], 422);
     }
 }

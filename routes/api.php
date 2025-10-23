@@ -5,10 +5,15 @@ use Illuminate\Support\Facades\Route;
 use  App\Http\Controllers\API\AuthController;
 use  App\Http\Controllers\API\ProfileController;
 use  App\Http\Controllers\API\ProductController;
+use  App\Http\Controllers\API\BranchController;
 use  App\Http\Controllers\API\PurchaseProductController;
 use  App\Http\Controllers\API\PurchaseServiceController;
+use  App\Http\Controllers\API\PurchaseSupplierController;
 use  App\Http\Controllers\API\ServiceController;
+use  App\Http\Controllers\API\SupplierController;
 use  App\Http\Controllers\API\TechnicianController;
+use  App\Http\Controllers\API\POReportProductController;
+use  App\Http\Controllers\API\POReportServiceController;
 
 // Login
 Route::post('/login', [AuthController::class, 'login']);
@@ -28,6 +33,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Update Profile
     Route::post('/profile-update', [ProfileController::class, 'updateProfile']);
+
+    // Get Branch
+    Route::get('/branch', [BranchController::class, 'getBranch']);
 
     // Get Product
     Route::get('/product', [ProductController::class, 'getProduct']);
@@ -71,9 +79,61 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get Purchase Service Detail
     Route::post('/purchase-services/detail', [PurchaseServiceController::class, 'getDetail']);
 
+    // Purchase Service
+    Route::post('/purchase-services/purchase', [PurchaseServiceController::class, 'purchaseService']);
+
     // Update Technician ID Purchase Service Item
     Route::post('/purchase-services/technician', [PurchaseServiceController::class, 'selectTechnician']);
 
     // Purchase Service Payment
     Route::post('/purchase-services/payment', [PurchaseServiceController::class, 'updatePayment']);
+
+    // Purchase Service Cancel
+    Route::post('/purchase-services/cancel', [PurchaseServiceController::class, 'cancelPurchase']);
+
+    // Purchase Service Approve
+    Route::post('/purchase-services/approve', [PurchaseServiceController::class, 'approvePurchase']);
+
+    // Purchase Service Progress
+    Route::post('/purchase-services/progress', [PurchaseServiceController::class, 'progressPurchase']);
+
+    // Purchase Service Complete
+    Route::post('/purchase-services/complete', [PurchaseServiceController::class, 'completePurchase']);
+
+    // Supplier
+    Route::get('/supplier', [SupplierController::class, 'getSupplier']);
+
+    // Get Purchase Supplier List
+    Route::post('/purchase-suppliers/list', [PurchaseSupplierController::class, 'getList'])
+        ->name('purchase-suppliers.getList');;
+
+    // Get Purchase Supplier Detail
+    Route::post('/purchase-suppliers/detail', [PurchaseSupplierController::class, 'getDetail'])
+        ->name('purchase-suppliers.getDetail');
+
+    // Purchase Supplier
+    Route::post('/purchase-suppliers/purchase', [PurchaseSupplierController::class, 'purchaseSupplier']);
+
+    // Purchase Supplier Payment
+    Route::post('/purchase-suppliers/payment', [PurchaseSupplierController::class, 'updatePayment']);
+
+    // Purchase Supplier Cancel
+    Route::post('/purchase-suppliers/cancel', [PurchaseSupplierController::class, 'cancelPurchase']);
+
+    // Purchase Supplier Process
+    Route::post('/purchase-suppliers/process', [PurchaseSupplierController::class, 'processPurchase']);
+
+    // Purchase Supplier Receive
+    Route::post('/purchase-suppliers/receive', [PurchaseSupplierController::class, 'receivePurchase']);
+
+    // Purchase Supplier Complete
+    Route::post('/purchase-suppliers/complete', [PurchaseSupplierController::class, 'completePurchase']);
+
+    // PO Product Reports
+    Route::post('/reports/po-product/overview', [POReportProductController::class, 'getOverview']);
+    Route::post('/reports/po-product/trends', [POReportProductController::class, 'getTrends']);
+
+    // PO Service Reports
+    Route::post('/reports/po-service/overview', [POReportServiceController::class, 'getOverview']);
+    Route::post('/reports/po-service/trends', [POReportServiceController::class, 'getTrends']);
 });

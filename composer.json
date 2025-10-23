@@ -13,7 +13,7 @@
         "bezhansalleh/filament-shield": "^3.3",
         "filament/filament": "^3.3",
         "filament/widgets": "^3.3",
-        "kreait/laravel-firebase": "^5.10",
+        "kreait/laravel-firebase": "^6.1",
         "laravel/framework": "^11.31",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",

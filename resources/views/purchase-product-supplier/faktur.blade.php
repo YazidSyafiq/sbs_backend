@@ -430,12 +430,15 @@
         Generating PDF...
     </div>
 
-    <!-- Action Buttons -->
-    <div class="action-buttons">
-        <button class="btn btn-download" onclick="downloadFakturPDF()">
-            <span>📄</span> Download PDF
-        </button>
-    </div>
+    @if (!$isFromMobile)
+        <!-- Action Buttons -->
+        <div class="action-buttons">
+            <button class="btn btn-download" onclick="downloadFakturPDF()">
+                <span>📄</span> Download PDF
+            </button>
+        </div>
+    @endif
+
 
     <div class="container" id="faktur-content">
         <!-- Header -->
