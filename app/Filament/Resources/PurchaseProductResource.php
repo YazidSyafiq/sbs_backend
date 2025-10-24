@@ -282,7 +282,24 @@ class PurchaseProductResource extends Resource
                     ]),
                 Forms\Components\Section::make('Payment Information')
                     ->columns(1)
-                    ->hidden(fn (Get $get) => $get('type_po') !== 'cash')
+                    ->hidden(function (Get $get, string $context) {
+                        $typePo = $get('type_po');
+
+                        // Hidden jika type_po belum dipilih
+                        if (!$typePo) {
+                            return true;
+                        }
+
+                        // Hidden jika credit DAN context adalah create
+                        if ($typePo === 'credit' && $context === 'create') {
+                            return true;
+                        }
+
+                        // Tampilkan untuk kondisi lainnya:
+                        // - Cash (create & edit)
+                        // - Credit (hanya edit)
+                        return false;
+                    })
                     ->schema([
                         Forms\Components\Select::make('status_paid')
                             ->options([
