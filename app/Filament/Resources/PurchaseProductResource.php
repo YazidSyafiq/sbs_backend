@@ -316,6 +316,8 @@ class PurchaseProductResource extends Resource
                         Forms\Components\FileUpload::make('bukti_tf')
                             ->label('Upload Payment Receipt')
                             ->maxSize(3072)
+                            ->openable() // Tambahkan ini untuk full screen view
+                            ->downloadable() // Optional: untuk bisa download
                             ->disk('public')
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))

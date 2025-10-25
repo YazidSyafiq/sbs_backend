@@ -318,6 +318,8 @@ class ServicePurchaseResource extends Resource
                             ->columnSpanFull()
                             ->disabled(fn (Get $get) => $get('status') === 'Done' || !Auth::user()->hasRole('User'))
                             ->directory('po_service')
+                            ->openable() // Tambahkan ini untuk full screen view
+                            ->downloadable() // Optional: untuk bisa download
                             ->required(function (string $context, ?ServicePurchase $record = null) {
                                 // Saat create, tidak required
                                 if ($context === 'create') {
