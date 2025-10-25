@@ -254,6 +254,8 @@ class PurchaseProductSupplierResource extends Resource
                             ->maxSize(3072)
                             ->disk('public')
                             ->columnSpanFull()
+                            ->openable() // Tambahkan ini untuk full screen view
+                            ->downloadable() // Optional: untuk bisa download
                             ->disabled(fn (Get $get) => $get('status') === 'Done')
                             ->directory('po_supplier')
                             ->required()
