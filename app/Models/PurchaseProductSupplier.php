@@ -36,7 +36,7 @@ class PurchaseProductSupplier extends Model
     protected $casts = [
         'order_date' => 'date',
         'received_date' => 'date',
-        'quantity' => 'integer',
+        'quantity' => 'numeric',
     ];
 
     public function user(): BelongsTo
