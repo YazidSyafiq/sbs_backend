@@ -553,7 +553,8 @@
                             {{ floor($purchaseProduct->quantity) == $purchaseProduct->quantity
                                 ? number_format($purchaseProduct->quantity, 0, ',', '.')
                                 : number_format($purchaseProduct->quantity, 2, ',', '.') }}
-                            {{ $purchaseProdu->product->unit }}</td>
+                            ({{ $purchaseProduct->product->unit }})
+                        </td>
                     </tr>
                 </tbody>
             </table>

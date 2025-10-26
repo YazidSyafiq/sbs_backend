@@ -555,7 +555,8 @@
                                 {{ floor($item->quantity) == $item->quantity
                                     ? number_format($item->quantity, 0, ',', '.')
                                     : number_format($item->quantity, 2, ',', '.') }}
-                                {{ $item->product->unit }}</td>
+                                ({{ $item->product->unit }})
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

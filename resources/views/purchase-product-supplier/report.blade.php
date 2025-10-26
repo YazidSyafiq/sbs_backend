@@ -583,7 +583,8 @@
                                     {{ floor($purchase->quantity) == $purchase->quantity
                                         ? number_format($purchase->quantity, 0, ',', '.')
                                         : number_format($purchase->quantity, 2, ',', '.') }}
-                                    {{ $purchase->product->unit }}</td>
+                                    ({{ $purchase->product->unit }})
+                                </td>
                                 <td class="col-unit-price">Rp {{ number_format($purchase->unit_price, 0, ',', '.') }}
                                 </td>
                                 <td class="col-type">

@@ -182,15 +182,23 @@ class PurchaseProductResource extends Resource
                                     }),
                                 Forms\Components\TextInput::make('quantity')
                                     ->numeric()
-                                    ->step(0.01) // Izinkan input desimal
+                                    ->step(0.01) // Memperbolehkan desimal
                                     ->minValue(0.01)
                                     ->required()
                                     ->live()
+                                    ->formatStateUsing(function ($state) {
+                                        if (is_null($state)) {
+                                            return null;
+                                        }
+                                        // Hilangkan desimal jika nilainya bulat
+                                        return $state == floor($state) ? (string) intval($state) : $state;
+                                    })
                                     ->suffix(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) {
                                             return 'pcs';
                                         }
+
                                         $product = Product::find($productId);
                                         return $product?->unit ?? 'pcs';
                                     })
