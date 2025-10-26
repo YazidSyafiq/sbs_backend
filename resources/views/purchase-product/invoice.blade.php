@@ -615,7 +615,7 @@
                             <td>{{ floor($item->quantity) == $item->quantity
                                 ? number_format($item->quantity, 0, ',', '.')
                                 : number_format($item->quantity, 2, ',', '.') }}
-                                {{ $item->product->unit }}
+                                ({{ $item->product->unit }})
                             </td>
                             <td>Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
                             <td>Rp {{ number_format($item->total_price, 0, ',', '.') }}</td>
