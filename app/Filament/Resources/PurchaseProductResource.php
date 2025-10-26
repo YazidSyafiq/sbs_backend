@@ -677,7 +677,7 @@ class PurchaseProductResource extends Resource
                         ->color('info')
                         ->url(fn (PurchaseProduct $record): string => route('purchase-product.invoice', $record))
                         ->openUrlInNewTab()
-                        ->visible(fn (PurchaseProduct $record) => in_array($record->status, ['Requested', 'Processing', 'Shipped', 'Received', 'Done']) && !Auth::user()->hasRole('User')),
+                        ->visible(fn (PurchaseProduct $record) => in_array($record->status, ['Requested', 'Processing', 'Shipped', 'Received', 'Done'])),
                     Tables\Actions\Action::make('view_faktur')
                         ->label('Faktur')
                         ->icon('heroicon-m-document-text')
