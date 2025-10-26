@@ -630,14 +630,14 @@ class ServicePurchaseResource extends Resource
                         ->color('info')
                         ->url(fn (ServicePurchase $record): string => route('purchase-service.invoice', $record))
                         ->openUrlInNewTab()
-                        ->visible(fn (ServicePurchase $record) => in_array($record->status, ['Approved', 'In Progress', 'Done']) && !Auth::user()->hasRole('User')),
+                        ->visible(fn (ServicePurchase $record) => in_array($record->status, ['Requested','Approved', 'In Progress', 'Done'])),
                     Tables\Actions\Action::make('view_faktur')
                         ->label('Faktur')
                         ->icon('heroicon-m-document-text')
                         ->color('success')
                         ->url(fn (ServicePurchase $record): string => route('purchase-service.faktur', $record))
                         ->openUrlInNewTab()
-                        ->visible(fn (ServicePurchase $record) => in_array($record->status, ['Approved', 'In Progress', 'Done']) && !Auth::user()->hasRole('User')),
+                        ->visible(fn (ServicePurchase $record) => in_array($record->status, ['Requested', 'Approved', 'In Progress', 'Done']) && !Auth::user()->hasRole('User')),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
                         ->visible(function (ServicePurchase $record) {
