@@ -612,7 +612,11 @@
                         <tr>
                             <td><strong>{{ $item->product->name }}</strong></td>
                             <td>{{ $item->product->code }}</td>
-                            <td>{{ $item->quantity }} pcs</td>
+                            <td>{{ floor($item->quantity) == $item->quantity
+                                ? number_format($item->quantity, 0, ',', '.')
+                                : number_format($item->quantity, 2, ',', '.') }}
+                                {{ $item->product->unit }}
+                            </td>
                             <td>Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
                             <td>Rp {{ number_format($item->total_price, 0, ',', '.') }}</td>
                         </tr>

@@ -551,7 +551,11 @@
                                 <strong>{{ $item->product->name }}</strong>
                             </td>
                             <td style="text-align: center;">{{ $item->product->code }}</td>
-                            <td style="text-align: center; font-weight: 600;">{{ $item->quantity }} pcs</td>
+                            <td style="text-align: center; font-weight: 600;">
+                                {{ floor($item->quantity) == $item->quantity
+                                    ? number_format($item->quantity, 0, ',', '.')
+                                    : number_format($item->quantity, 2, ',', '.') }}
+                                {{ $item->product->unit }}</td>
                         </tr>
                     @endforeach
                 </tbody>
