@@ -738,7 +738,10 @@
                                             Rp {{ number_format($product->price, 0, ',', '.') }}</td>
                                         <td rowspan="{{ $batchesCount }}"
                                             style="text-align: right; font-weight: bold; vertical-align: middle; border-right: 1px solid #dee2e6;">
-                                            {{ number_format($totalProductStock) }}</td>
+                                            {{ $totalProductStock == floor($totalProductStock)
+                                                ? number_format($totalProductStock, 0, ',', '.')
+                                                : rtrim(rtrim(number_format($totalProductStock, 2, ',', '.'), '0'), ',') }}
+                                            ({{ $product->unit ?? 'pcs' }})</td>
                                         <td rowspan="{{ $batchesCount }}"
                                             style="text-align: center; vertical-align: middle; border-right: 1px solid #dee2e6;">
                                             <span
@@ -760,7 +763,11 @@
                                         @endif
                                     </td>
                                     <td style="text-align: right; font-weight: bold; border-right: 1px solid #dee2e6;">
-                                        {{ number_format($batch->quantity) }}</td>
+                                        {{ $batch->quantity == floor($batch->quantity)
+                                            ? number_format($batch->quantity, 0, ',', '.')
+                                            : rtrim(rtrim(number_format($batch->quantity, 2, ',', '.'), '0'), ',') }}
+                                        ({{ $product->unit ?? 'pcs' }})
+                                    </td>
                                     <td style="text-align: right; border-right: 1px solid #dee2e6;">Rp
                                         {{ number_format($batch->cost_price, 0, ',', '.') }}</td>
                                     <td style="text-align: center; border-right: 1px solid #dee2e6;">
