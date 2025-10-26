@@ -156,7 +156,7 @@ class PurchaseProductController extends Controller
             'notes' => 'nullable|string',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|integer|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
+            'items.*.quantity' => 'required|numeric|min:0.01', // Ubah dari integer ke numeric
         ], [
             'name.required' => 'PO Name Is Required.',
             'order_date.required' => 'Order Date Is Required.',
@@ -168,7 +168,8 @@ class PurchaseProductController extends Controller
             'items.*.product_id.required' => 'Product ID Is Required.',
             'items.*.product_id.exists' => 'Selected Product Not Found.',
             'items.*.quantity.required' => 'Quantity Is Required.',
-            'items.*.quantity.min' => 'Quantity must be at least 1.',
+            'items.*.quantity.numeric' => 'Quantity must be a number.',
+            'items.*.quantity.min' => 'Quantity must be at least 0.01.',
         ]);
 
         if ($validator->fails()) {

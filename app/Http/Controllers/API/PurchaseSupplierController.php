@@ -140,7 +140,7 @@ class PurchaseSupplierController extends Controller
             'type_po' => 'required|in:cash,credit',
             'supplier_id' => 'required|integer|exists:suppliers,id',
             'product_id' => 'required|integer|exists:products,id',
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.01',
             'unit_price' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
         ], [
@@ -154,7 +154,7 @@ class PurchaseSupplierController extends Controller
             'product_id.required' => 'Product Is Required.',
             'product_id.exists' => 'Selected Product Not Found.',
             'quantity.required' => 'Quantity Is Required.',
-            'quantity.min' => 'Quantity must be at least 1.',
+            'quantity.min' => 'Quantity must be at least 0.01.',
             'unit_price.required' => 'Unit Price Is Required.',
             'unit_price.min' => 'Unit Price must be at least 0.',
         ]);
