@@ -644,7 +644,10 @@
                                         @endif
                                     </td>
                                     <td style="text-align: center; border-right: 1px solid #dee2e6;">
-                                        {{ number_format($item->quantity) }}</td>
+                                        {{ floor($item->quantity) == $item->quantity
+                                            ? number_format($item->quantity, 0, ',', '.')
+                                            : number_format($item->quantity, 2, ',', '.') }}
+                                        {{ $item->product->unit }}</td>
                                     <td style="text-align: right; border-right: 1px solid #dee2e6;">Rp
                                         {{ number_format($item->unit_price, 0, ',', '.') }}</td>
                                     <td style="text-align: right; font-weight: bold; border-right: 1px solid #dee2e6;">

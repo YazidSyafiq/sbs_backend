@@ -182,15 +182,15 @@ class PurchaseProductResource extends Resource
                                     }),
                                 Forms\Components\TextInput::make('quantity')
                                     ->numeric()
-                                    ->minValue(1)
+                                    ->step(0.01) // Izinkan input desimal
+                                    ->minValue(0.01)
                                     ->required()
                                     ->live()
                                     ->suffix(function (Get $get) {
                                         $productId = $get('product_id');
                                         if (!$productId) {
-                                            return 'pcs'; // default suffix
+                                            return 'pcs';
                                         }
-
                                         $product = Product::find($productId);
                                         return $product?->unit ?? 'pcs';
                                     })

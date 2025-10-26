@@ -3,7 +3,8 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Purchase Product Supplier Report - {{ $fromDate->format('d/m/Y') }} to {{ $untilDate->format('d/m/Y') }}</title>
+    <title>Purchase Product Supplier Report - {{ $fromDate->format('d/m/Y') }} to {{ $untilDate->format('d/m/Y') }}
+    </title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <!-- jsPDF library -->
@@ -521,7 +522,8 @@
                     </div>
                     <div class="info-item">
                         <span class="info-label">Average Order</span>
-                        <span class="info-value">: Rp {{ $totalOrders > 0 ? number_format($totalAmount / $totalOrders, 0, ',', '.') : 0 }}</span>
+                        <span class="info-value">: Rp
+                            {{ $totalOrders > 0 ? number_format($totalAmount / $totalOrders, 0, ',', '.') : 0 }}</span>
                     </div>
                 </div>
             </div>
@@ -567,33 +569,42 @@
                                 <td class="col-name">{{ $purchase->name }}</td>
                                 <td class="col-supplier">
                                     {{ $purchase->supplier->name ?? '-' }}
-                                    @if($purchase->supplier)
+                                    @if ($purchase->supplier)
                                         <br><small>({{ $purchase->supplier->code }})</small>
                                     @endif
                                 </td>
                                 <td class="col-product">
                                     {{ $purchase->product->name ?? '-' }}
-                                    @if($purchase->product)
+                                    @if ($purchase->product)
                                         <br><small>({{ $purchase->product->code }})</small>
                                     @endif
                                 </td>
-                                <td class="col-qty">{{ number_format($purchase->quantity) }}</td>
-                                <td class="col-unit-price">Rp {{ number_format($purchase->unit_price, 0, ',', '.') }}</td>
+                                <td class="col-qty">
+                                    {{ floor($purchase->quantity) == $purchase->quantity
+                                        ? number_format($purchase->quantity, 0, ',', '.')
+                                        : number_format($purchase->quantity, 2, ',', '.') }}
+                                    {{ $purchase->product->unit }}</td>
+                                <td class="col-unit-price">Rp {{ number_format($purchase->unit_price, 0, ',', '.') }}
+                                </td>
                                 <td class="col-type">
-                                    <span class="status-badge type-{{ $purchase->type_po }}">{{ ucfirst($purchase->type_po) }}</span>
+                                    <span
+                                        class="status-badge type-{{ $purchase->type_po }}">{{ ucfirst($purchase->type_po) }}</span>
                                 </td>
                                 <td class="col-status-po">
-                                    <span class="status-badge status-{{ strtolower($purchase->status) }}">{{ $purchase->status }}</span>
+                                    <span
+                                        class="status-badge status-{{ strtolower($purchase->status) }}">{{ $purchase->status }}</span>
                                 </td>
                                 <td class="col-status-paid">
-                                    <span class="status-badge payment-{{ $purchase->status_paid ?? 'unpaid' }}">{{ ucfirst($purchase->status_paid ?? 'unpaid') }}</span>
+                                    <span
+                                        class="status-badge payment-{{ $purchase->status_paid ?? 'unpaid' }}">{{ ucfirst($purchase->status_paid ?? 'unpaid') }}</span>
                                 </td>
                                 <td class="col-total">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</td>
                             </tr>
                         @endforeach
                     @else
                         <tr>
-                            <td colspan="12" style="text-align: center; padding: 20px; color: #666; font-style: italic;">
+                            <td colspan="12"
+                                style="text-align: center; padding: 20px; color: #666; font-style: italic;">
                                 No data found for the selected criteria.
                             </td>
                         </tr>
