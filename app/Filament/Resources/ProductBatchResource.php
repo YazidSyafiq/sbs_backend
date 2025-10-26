@@ -76,6 +76,13 @@ class ProductBatchResource extends Resource
                             ->numeric()
                             ->minValue(0)
                             ->disabled()
+                            ->formatStateUsing(function ($state) {
+                                if (is_null($state)) {
+                                    return null;
+                                }
+                                // Hilangkan desimal jika nilainya bulat
+                                return $state == floor($state) ? (string) intval($state) : $state;
+                            })
                             ->suffix(fn ($record) => $record->product->unit ?? 'pcs')
                             ->required(),
                         Forms\Components\TextInput::make('cost_price')
@@ -135,7 +142,14 @@ class ProductBatchResource extends Resource
                         'In Stock' => 'success',
                         default => 'gray'
                     })
-                    ->formatStateUsing(fn ($state, $record) => number_format($state) . ' ' . ($record->product->unit ?? 'pcs')),
+                    ->formatStateUsing(function ($state, $record) {
+                        // Format number tanpa desimal jika bulat
+                        $formattedQty = $state == floor($state)
+                            ? number_format($state, 0, ',', '.')
+                            : rtrim(rtrim(number_format($state, 2, ',', '.'), '0'), ',');
+
+                        return $formattedQty . ' ' . ($record->product->unit ?? 'pcs');
+                    }),
                 Tables\Columns\TextColumn::make('cost_price')
                     ->label('Cost Price')
                     ->formatStateUsing(function ($state) {

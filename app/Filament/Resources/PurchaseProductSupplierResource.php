@@ -154,12 +154,20 @@ class PurchaseProductSupplierResource extends Resource
                             ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
                         Forms\Components\TextInput::make('quantity')
                             ->numeric()
-                            ->minValue(1)
+                            ->step(0.01) // Memperbolehkan desimal
+                            ->minValue(0.01)
                             ->required()
                             ->live()
+                            ->formatStateUsing(function ($state) {
+                                if (is_null($state)) {
+                                    return null;
+                                }
+                                // Hilangkan desimal jika nilainya bulat
+                                return $state == floor($state) ? (string) intval($state) : $state;
+                            })
                             ->dehydrated()
                             ->placeholder('Enter Quantity')
-                            ->hint('Example: 10')
+                            ->hint('Example: 10 or 10.5')
                             ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
                         Forms\Components\TextInput::make('unit')
                             ->label('Unit')
