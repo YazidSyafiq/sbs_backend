@@ -31,79 +31,68 @@ class SupplierController extends Controller
         $minTotalPo = $request->min_total_po;
         $maxTotalPo = $request->max_total_po;
 
-        // Query untuk mendapatkan PO dalam periode tertentu
-        $purchaseOrderQuery = PurchaseProductSupplier::with(['supplier', 'product'])
-            ->whereBetween('order_date', [$fromDate, $untilDate]);
+        // Query untuk mendapatkan POs dengan items
+        $purchaseOrdersQuery = PurchaseProductSupplier::with(['supplier', 'items.product'])
+            ->whereBetween('order_date', [$fromDate, $untilDate])
+            ->whereNotIn('status', ['Cancelled'])
+            ->whereNull('deleted_at');
 
-        // Apply filters pada PO
+        // Apply filters
         if ($piutangStatus === 'has_piutang') {
-            $purchaseOrderQuery->where('status_paid', 'unpaid');
+            $purchaseOrdersQuery->where('status_paid', 'unpaid');
         } elseif ($piutangStatus === 'no_piutang') {
-            $purchaseOrderQuery->where('status_paid', 'paid');
+            $purchaseOrdersQuery->where('status_paid', 'paid');
         }
 
         if ($supplierId) {
-            $purchaseOrderQuery->where('supplier_id', $supplierId);
+            $purchaseOrdersQuery->where('supplier_id', $supplierId);
         }
 
         if ($minTotalPo) {
-            $purchaseOrderQuery->where('total_amount', '>=', $minTotalPo);
+            $purchaseOrdersQuery->where('total_amount', '>=', $minTotalPo);
         }
 
         if ($maxTotalPo) {
-            $purchaseOrderQuery->where('total_amount', '<=', $maxTotalPo);
+            $purchaseOrdersQuery->where('total_amount', '<=', $maxTotalPo);
         }
 
-        $purchaseOrders = $purchaseOrderQuery->orderBy('order_date', 'desc')->get();
+        $purchaseOrders = $purchaseOrdersQuery->orderBy('order_date', 'desc')->get();
 
-        // Group by supplier untuk summary
-        $supplierSummary = collect();
-        if ($purchaseOrders->count() > 0) {
-            $supplierSummary = $purchaseOrders->groupBy('supplier_id')->map(function ($orders, $supplierId) {
-                $supplier = $orders->first()->supplier;
-                $totalOrders = $orders->count();
-                $totalAmount = $orders->sum('total_amount');
-                $unpaidAmount = $orders->where('status_paid', 'unpaid')->sum('total_amount');
-                $paidAmount = $orders->where('status_paid', 'paid')->sum('total_amount');
-                $unpaidCount = $orders->where('status_paid', 'unpaid')->count();
-                $paidCount = $orders->where('status_paid', 'paid')->count();
-
-                return (object) [
-                    'supplier' => $supplier,
-                    'orders' => $orders,
-                    'total_orders' => $totalOrders,
-                    'total_amount' => $totalAmount,
-                    'unpaid_amount' => $unpaidAmount,
-                    'paid_amount' => $paidAmount,
-                    'unpaid_count' => $unpaidCount,
-                    'paid_count' => $paidCount,
+        // Format data untuk view
+        $purchaseOrders = $purchaseOrders->map(function($po) {
+            // Get all products in this PO
+            $products = $po->items->filter(function($item) {
+                return $item->product && $item->product->deleted_at === null;
+            })->map(function($item) {
+                return [
+                    'name' => $item->product->name,
+                    'code' => $item->product->code,
+                    'quantity' => $item->quantity,
+                    'unit' => $item->product->unit ?? 'pcs',
+                    'unit_price' => $item->unit_price,
+                    'total_price' => $item->total_price,
                 ];
             });
-        }
 
-        // Calculate overall totals
-        $totalOrders = $purchaseOrders->count();
-        $totalAmount = $purchaseOrders->sum('total_amount');
-        $totalUnpaidAmount = $purchaseOrders->where('status_paid', 'unpaid')->sum('total_amount');
-        $totalPaidAmount = $purchaseOrders->where('status_paid', 'paid')->sum('total_amount');
-        $totalUnpaidCount = $purchaseOrders->where('status_paid', 'unpaid')->count();
-        $totalSuppliersWithOrders = $supplierSummary->count();
+            return (object)[
+                'po_id' => $po->id,
+                'po_number' => $po->po_number,
+                'order_date' => $po->order_date,
+                'status_paid' => $po->status_paid,
+                'supplier' => $po->supplier,
+                'products' => $products,
+                'total_items' => $products->count(),
+                'total_quantity' => $products->sum('quantity'),
+                'total_amount' => $po->total_amount,
+            ];
+        });
 
-        // Variables untuk compatibility dengan view
-        $totalSuppliers = $totalSuppliersWithOrders;
-        $totalPiutang = $totalUnpaidAmount;
-        $totalPoAmount = $totalAmount;
-        $averagePoAmount = $totalSuppliersWithOrders > 0 ? $totalAmount / $totalSuppliersWithOrders : 0;
-
-        // Piutang summary
-        $piutangSummary = [
-            'has_piutang' => $supplierSummary->filter(function($summary) {
-                return $summary->unpaid_amount > 0;
-            })->count(),
-            'no_piutang' => $supplierSummary->filter(function($summary) {
-                return $summary->unpaid_amount <= 0;
-            })->count(),
-        ];
+        // Calculate statistics
+        $uniqueSuppliers = $purchaseOrders->pluck('supplier.id')->unique()->count();
+        $totalPiutang = $purchaseOrders->where('status_paid', 'unpaid')->sum('total_amount');
+        $totalPoAmount = $purchaseOrders->sum('total_amount');
+        $averagePoAmount = $uniqueSuppliers > 0 ? $totalPoAmount / $uniqueSuppliers : 0;
+        $totalSuppliers = $uniqueSuppliers;
 
         // Get filter labels for display
         $filterLabels = $this->getFilterLabels($request);
@@ -111,20 +100,12 @@ class SupplierController extends Controller
 
         return view('supplier.report', compact(
             'purchaseOrders',
-            'supplierSummary',
             'fromDate',
             'untilDate',
-            'totalOrders',
-            'totalAmount',
-            'totalUnpaidAmount',
-            'totalPaidAmount',
-            'totalUnpaidCount',
-            'totalSuppliersWithOrders',
             'totalSuppliers',
             'totalPiutang',
             'totalPoAmount',
             'averagePoAmount',
-            'piutangSummary',
             'filterLabels',
             'companyInfo'
         ));

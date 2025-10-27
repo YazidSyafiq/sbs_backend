@@ -62,7 +62,7 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['Total Cost', 'Rp ' . number_format($costBreakdown->total_cost, 0, ',', '.'), '100%'];
         $data[] = [''];
 
-        // Outstanding Balances - FIXED VERSION
+        // Outstanding Balances
         $debtAnalysis = AccountingReport::getDebtAnalysis($this->filters);
         $data[] = ['OUTSTANDING BALANCES'];
         $data[] = [''];
@@ -82,7 +82,7 @@ class AccountingReportSummarySheet implements FromArray, WithHeadings, WithStyle
         $data[] = ['Revenue per Source (Avg)', 'Rp ' . number_format($overview->total_revenue / 3, 0, ',', '.')];
         $data[] = ['Cost per Category (Avg)', 'Rp ' . number_format($overview->total_cost / 4, 0, ',', '.')];
 
-        // Net Position Analysis - FIXED
+        // Net Position Analysis
         $netPositionStatus = $debtAnalysis->net_debt_position >= 0
             ? 'We\'re owed more than we owe (Good position)'
             : 'We owe more than we\'re owed (Requires attention)';
