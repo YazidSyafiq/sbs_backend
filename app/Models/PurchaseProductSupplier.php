@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -18,11 +19,8 @@ class PurchaseProductSupplier extends Model
     protected $fillable = [
         'po_number',
         'name',
-        'product_id',
         'user_id',
         'supplier_id',
-        'quantity',
-        'unit_price',
         'order_date',
         'received_date',
         'total_amount',
@@ -48,33 +46,27 @@ class PurchaseProductSupplier extends Model
         return $this->belongsTo(Supplier::class);
     }
 
-    public function product(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(PurchaseProductSupplierItem::class);
     }
 
     protected static function boot()
     {
         parent::boot();
 
-        // Event saat model dibuat
         static::created(function ($purchaseProductSupplier) {
             $purchaseProductSupplier->status = 'Requested';
             $purchaseProductSupplier->save();
 
-            // Jika status adalah Requested, kirim email notifikasi
             if ($purchaseProductSupplier->status === 'Requested') {
                 $purchaseProductSupplier->sendStatusChangeEmail();
             }
         });
     }
 
-    /**
-    * Send email notification for PO status change
-    */
     private function sendStatusChangeEmail(): void
     {
-        // Dispatch job untuk mengirim email
         SendPurchaseProductSupplierEmailJob::dispatch($this->id, $this->status);
 
         Log::info("PO Supplier status email job dispatched", [
@@ -85,33 +77,25 @@ class PurchaseProductSupplier extends Model
 
     public static function generatePoNumber(int $supplierId, string $orderDate): string
     {
-        // Ambil supplier
         $supplier = Supplier::find($supplierId);
-        $supplierCode = $supplier->code ?? 'SUP'; // Default SUP jika tidak ada code
-
-        // Format YYYYMM dari order date
+        $supplierCode = $supplier->code ?? 'SUP';
         $yearMonth = Carbon::parse($orderDate)->format('Ym');
-
-        // Loop untuk mencari nomor yang belum digunakan
         $nextNumber = 1;
-        $maxAttempts = 1000; // Batasi attempt untuk menghindari infinite loop
+        $maxAttempts = 1000;
 
         for ($attempt = 0; $attempt < $maxAttempts; $attempt++) {
-            // Cari nomor urut terakhir dengan format yang sama (termasuk soft deleted)
-            $lastPo = static::withTrashed() // Include soft deleted records
+            $lastPo = static::withTrashed()
                 ->where('po_number', 'like', "PO/{$supplierCode}/{$yearMonth}/%")
                 ->orderByRaw('CAST(SUBSTRING_INDEX(po_number, "/", -1) AS UNSIGNED) DESC')
                 ->first();
 
             if ($lastPo) {
-                // Extract nomor dari PO number terakhir
                 $lastNumber = (int) substr($lastPo->po_number, strrpos($lastPo->po_number, '/') + 1);
                 $nextNumber = $lastNumber + 1;
             }
 
             $poNumber = "PO/{$supplierCode}/{$yearMonth}/" . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
 
-            // Cek apakah nomor sudah ada (termasuk soft deleted)
             $exists = static::withTrashed()
                 ->where('po_number', $poNumber)
                 ->exists();
@@ -120,18 +104,16 @@ class PurchaseProductSupplier extends Model
                 return $poNumber;
             }
 
-            // Jika masih ada yang sama, increment dan coba lagi
             $nextNumber++;
         }
 
-        // Fallback jika semua attempt gagal - gunakan timestamp untuk uniqueness
         return "PO/{$supplierCode}/{$yearMonth}/" . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
     }
 
-    // Calculate total
+    // Calculate total from items
     public function calculateTotal(): void
     {
-        $this->total_amount = $this->quantity * $this->unit_price;
+        $this->total_amount = $this->items()->sum('total_price');
         $this->save();
     }
 
@@ -165,7 +147,6 @@ class PurchaseProductSupplier extends Model
 
     public function cancel(): void
     {
-        // Rollback supplier total jika sudah diproses
         if ($this->status === 'Processing' && $this->supplier) {
             $supplier = Supplier::where('id', $this->supplier_id)->first();
 
@@ -195,39 +176,35 @@ class PurchaseProductSupplier extends Model
         $this->status = 'Received';
         $this->save();
 
-        // Buat ProductBatch ketika PO di-receive
-        $this->createProductBatch();
+        // Buat ProductBatch untuk setiap item
+        foreach ($this->items as $item) {
+            $this->createProductBatch($item);
+        }
 
         $this->sendStatusChangeEmail();
     }
 
-    /**
-     * Membuat ProductBatch ketika PO di-receive
-     */
-    private function createProductBatch(): void
+    private function createProductBatch($item): void
     {
-        // Generate batch number
         $batchNumber = ProductBatch::generateBatchNumber(
-            $this->product_id,
+            $item->product_id,
             $this->supplier_id,
             $this->received_date->format('Y-m-d')
         );
 
-        // Buat ProductBatch
         ProductBatch::create([
-            'product_id' => $this->product_id,
+            'product_id' => $item->product_id,
             'batch_number' => $batchNumber,
-            'quantity' => $this->quantity,
-            'cost_price' => $this->unit_price,
+            'quantity' => $item->quantity,
+            'cost_price' => $item->unit_price,
             'entry_date' => $this->received_date,
-            'expiry_date' => null, // Untuk saat ini nullable, bisa ditambahkan field di form nanti
+            'expiry_date' => null,
             'purchase_product_supplier_id' => $this->id,
         ]);
     }
 
     public function done(): void
     {
-        // Validasi: harus ada bukti transfer jika masih unpaid
         if ($this->status_paid === 'unpaid' || empty($this->bukti_tf)) {
             throw new \Exception('Payment proof must be provided before marking as Done.');
         }
@@ -235,7 +212,6 @@ class PurchaseProductSupplier extends Model
         if ($this->supplier) {
             $supplier = Supplier::where('id', $this->supplier_id)->first();
 
-            // Jika tipe PO kredit, maka kurangi piutang
             if ($this->type_po === 'credit') {
                 $supplier->update([
                     'piutang' => $supplier->piutang - $this->total_amount,

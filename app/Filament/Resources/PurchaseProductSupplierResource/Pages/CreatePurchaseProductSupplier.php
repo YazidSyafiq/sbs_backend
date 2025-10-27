@@ -20,7 +20,7 @@ class CreatePurchaseProductSupplier extends CreateRecord
             $data['order_date'] = now()->format('Y-m-d');
         }
 
-        // Generate PO number berdasarkan user dan order date
+        // Generate PO number berdasarkan supplier dan order date
         $data['po_number'] = PurchaseProductSupplier::generatePoNumber(
             $data['supplier_id'],
             $data['order_date']

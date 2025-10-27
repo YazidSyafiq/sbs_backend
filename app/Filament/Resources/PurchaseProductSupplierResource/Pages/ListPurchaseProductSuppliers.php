@@ -46,20 +46,8 @@ class ListPurchaseProductSuppliers extends ListRecords
                                 })
                                 ->searchable()
                                 ->preload()
+                                ->columnSpanFull()
                                 ->placeholder('All Suppliers'),
-                            Forms\Components\Select::make('product_id')
-                                ->label('Product')
-                                ->options(function () {
-                                    return Product::select('id', 'name', 'code')
-                                        ->get()
-                                        ->mapWithKeys(function ($product) {
-                                            return [$product->id => $product->name . ' (' . $product->code . ')'];
-                                        })
-                                        ->toArray();
-                                })
-                                ->searchable()
-                                ->preload()
-                                ->placeholder('All Products'),
                             Forms\Components\Select::make('type_po')
                                 ->label('Type Purchase')
                                 ->options([

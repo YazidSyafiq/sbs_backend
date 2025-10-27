@@ -1,3 +1,4 @@
+<!-- resources/views/purchase-product-supplier/report.blade.php -->
 <!DOCTYPE html>
 <html>
 
@@ -160,59 +161,59 @@
         }
 
         .report-table .col-no {
-            width: 40px;
+            width: 30px;
             text-align: center;
         }
 
         .report-table .col-po {
-            width: 120px;
+            width: 100px;
         }
 
         .report-table .col-date {
-            width: 80px;
+            width: 70px;
             text-align: center;
         }
 
         .report-table .col-name {
-            width: 150px;
+            width: 130px;
         }
 
         .report-table .col-supplier {
-            width: 120px;
+            width: 110px;
         }
 
         .report-table .col-product {
-            width: 140px;
+            width: 130px;
         }
 
         .report-table .col-qty {
-            width: 80px;
+            width: 70px;
             text-align: center;
         }
 
         .report-table .col-unit-price {
+            width: 80px;
+            text-align: right;
+        }
+
+        .report-table .col-total-price {
             width: 90px;
             text-align: right;
         }
 
         .report-table .col-type {
-            width: 80px;
+            width: 70px;
             text-align: center;
         }
 
         .report-table .col-status-po {
-            width: 90px;
-            text-align: center;
-        }
-
-        .report-table .col-status-paid {
             width: 80px;
             text-align: center;
         }
 
-        .report-table .col-total {
-            width: 100px;
-            text-align: right;
+        .report-table .col-status-paid {
+            width: 70px;
+            text-align: center;
         }
 
         .status-badge {
@@ -553,54 +554,82 @@
                         <th class="col-product">PRODUCT</th>
                         <th class="col-qty">QUANTITY</th>
                         <th class="col-unit-price">UNIT PRICE</th>
+                        <th class="col-total-price">TOTAL PRICE</th>
                         <th class="col-type">TYPE</th>
                         <th class="col-status-po">STATUS</th>
                         <th class="col-status-paid">PAYMENT</th>
-                        <th class="col-total">TOTAL</th>
                     </tr>
                 </thead>
                 <tbody>
+                    @php $rowNumber = 1; @endphp
                     @if (count($purchaseProductSuppliers) > 0)
-                        @foreach ($purchaseProductSuppliers as $index => $purchase)
-                            <tr>
-                                <td class="col-no">{{ $index + 1 }}</td>
-                                <td class="col-po">{{ $purchase->po_number }}</td>
-                                <td class="col-date">{{ $purchase->order_date->format('d/m/Y') }}</td>
-                                <td class="col-name">{{ $purchase->name }}</td>
-                                <td class="col-supplier">
-                                    {{ $purchase->supplier->name ?? '-' }}
-                                    @if ($purchase->supplier)
-                                        <br><small>({{ $purchase->supplier->code }})</small>
-                                    @endif
-                                </td>
-                                <td class="col-product">
-                                    {{ $purchase->product->name ?? '-' }}
-                                    @if ($purchase->product)
-                                        <br><small>({{ $purchase->product->code }})</small>
-                                    @endif
-                                </td>
-                                <td class="col-qty">
-                                    {{ floor($purchase->quantity) == $purchase->quantity
-                                        ? number_format($purchase->quantity, 0, ',', '.')
-                                        : number_format($purchase->quantity, 2, ',', '.') }}
-                                    ({{ $purchase->product->unit }})
-                                </td>
-                                <td class="col-unit-price">Rp {{ number_format($purchase->unit_price, 0, ',', '.') }}
-                                </td>
-                                <td class="col-type">
-                                    <span
-                                        class="status-badge type-{{ $purchase->type_po }}">{{ ucfirst($purchase->type_po) }}</span>
-                                </td>
-                                <td class="col-status-po">
-                                    <span
-                                        class="status-badge status-{{ strtolower($purchase->status) }}">{{ $purchase->status }}</span>
-                                </td>
-                                <td class="col-status-paid">
-                                    <span
-                                        class="status-badge payment-{{ $purchase->status_paid ?? 'unpaid' }}">{{ ucfirst($purchase->status_paid ?? 'unpaid') }}</span>
-                                </td>
-                                <td class="col-total">Rp {{ number_format($purchase->total_amount, 0, ',', '.') }}</td>
-                            </tr>
+                        @foreach ($purchaseProductSuppliers as $purchase)
+                            @php
+                                $itemsCount = $purchase->items->count();
+                            @endphp
+                            @if ($itemsCount > 0)
+                                @foreach ($purchase->items as $index => $item)
+                                    <tr>
+                                        @if ($index == 0)
+                                            <!-- PO Level Information dengan rowspan -->
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="text-align: center; font-weight: bold; vertical-align: middle;">
+                                                {{ $rowNumber++ }}</td>
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="font-weight: bold; vertical-align: middle;">
+                                                {{ $purchase->po_number }}</td>
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="text-align: center; vertical-align: middle;">
+                                                {{ $purchase->order_date->format('d/m/Y') }}</td>
+                                            <td rowspan="{{ $itemsCount }}" style="vertical-align: middle;">
+                                                {{ $purchase->name }}</td>
+                                            <td rowspan="{{ $itemsCount }}" style="vertical-align: middle;">
+                                                {{ $purchase->supplier->name ?? '-' }}
+                                                @if ($purchase->supplier)
+                                                    <br><small>({{ $purchase->supplier->code }})</small>
+                                                @endif
+                                            </td>
+                                        @endif
+
+                                        <!-- Item Level Information -->
+                                        <td>
+                                            {{ $item->product->name ?? '-' }}
+                                            @if ($item->product)
+                                                <br><small>({{ $item->product->code }})</small>
+                                            @endif
+                                        </td>
+                                        <td style="text-align: center;">
+                                            {{ floor($item->quantity) == $item->quantity
+                                                ? number_format($item->quantity, 0, ',', '.')
+                                                : number_format($item->quantity, 2, ',', '.') }}
+                                            ({{ $item->product->unit ?? 'pcs' }})
+                                        </td>
+                                        <td style="text-align: right;">Rp
+                                            {{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                                        <td style="text-align: right; font-weight: bold;">Rp
+                                            {{ number_format($item->total_price, 0, ',', '.') }}</td>
+
+                                        @if ($index == 0)
+                                            <!-- PO Level Status dengan rowspan -->
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="text-align: center; vertical-align: middle;">
+                                                <span
+                                                    class="status-badge type-{{ $purchase->type_po }}">{{ ucfirst($purchase->type_po) }}</span>
+                                            </td>
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="text-align: center; vertical-align: middle;">
+                                                <span
+                                                    class="status-badge status-{{ strtolower($purchase->status) }}">{{ $purchase->status }}</span>
+                                            </td>
+                                            <td rowspan="{{ $itemsCount }}"
+                                                style="text-align: center; vertical-align: middle;">
+                                                <span
+                                                    class="status-badge payment-{{ $purchase->status_paid ?? 'unpaid' }}">{{ ucfirst($purchase->status_paid ?? 'unpaid') }}</span>
+                                            </td>
+                                        @endif
+                                    </tr>
+                                @endforeach
+                            @endif
                         @endforeach
                     @else
                         <tr>
@@ -656,12 +685,10 @@
                 const filename =
                     `Purchase_Product_Supplier_Report_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
 
-                // Hide action buttons temporarily
                 const actionButtons = document.querySelector('.action-buttons');
                 const originalDisplay = actionButtons.style.display;
                 actionButtons.style.display = 'none';
 
-                // Create canvas from HTML element with higher quality
                 const canvas = await html2canvas(element, {
                     scale: 2,
                     useCORS: true,
@@ -675,13 +702,10 @@
                     windowHeight: window.innerHeight
                 });
 
-                // Restore action buttons
                 actionButtons.style.display = originalDisplay;
 
-                // Get image data from canvas
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-                // Calculate dimensions for A4 landscape
                 const {
                     jsPDF
                 } = window.jspdf;
@@ -691,11 +715,9 @@
                     format: 'a4'
                 });
 
-                // A4 landscape dimensions in mm
                 const pdfWidth = 297;
                 const pdfHeight = 210;
 
-                // Calculate scaling to fit content properly
                 const canvasWidth = canvas.width;
                 const canvasHeight = canvas.height;
                 const ratio = canvasWidth / canvasHeight;
@@ -703,20 +725,16 @@
                 let imgWidth = pdfWidth - 20;
                 let imgHeight = imgWidth / ratio;
 
-                // If height exceeds page height, scale down
                 if (imgHeight > pdfHeight - 20) {
                     imgHeight = pdfHeight - 20;
                     imgWidth = imgHeight * ratio;
                 }
 
-                // Center the image on the page
                 const x = (pdfWidth - imgWidth) / 2;
                 const y = (pdfHeight - imgHeight) / 2;
 
-                // Add image to PDF
                 pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
 
-                // Set PDF properties
                 pdf.setProperties({
                     title: filename,
                     subject: 'Purchase Product Supplier Report',
@@ -724,7 +742,6 @@
                     creator: 'Report System'
                 });
 
-                // Save the PDF
                 pdf.save(filename);
 
                 hideLoading();
