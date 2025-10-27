@@ -17,4 +17,10 @@ class EditServicePurchase extends EditRecord
     //         Actions\DeleteAction::make(),
     //     ];
     // }
+
+    protected function afterSave(): void
+    {
+        // Hitung ulang total setiap kali data disimpan
+        $this->record->calculateTotal();
+    }
 }
