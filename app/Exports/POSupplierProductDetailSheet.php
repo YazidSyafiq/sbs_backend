@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\POReportSupplierProduct;
+use App\Models\PurchaseProductSupplier;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
@@ -25,26 +26,79 @@ class POSupplierProductDetailSheet implements FromQuery, WithHeadings, WithMappi
 
     public function query()
     {
-        $query = POReportSupplierProduct::with(['supplier', 'product', 'product.category', 'user'])
+        $query = PurchaseProductSupplier::query()
             ->select([
-                'purchase_product_suppliers.*',
+                'purchase_product_suppliers.id',
+                'purchase_product_suppliers.po_number',
+                'purchase_product_suppliers.name',
+                'purchase_product_suppliers.order_date',
+                'purchase_product_suppliers.received_date',
+                'purchase_product_suppliers.status',
+                'purchase_product_suppliers.status_paid',
+                'purchase_product_suppliers.type_po',
+                'purchase_product_suppliers.user_id',
                 'suppliers.name as supplier_name',
                 'suppliers.code as supplier_code',
                 'products.name as product_name',
                 'products.code as product_code',
                 'product_categories.name as category_name',
+                'purchase_product_supplier_items.quantity',
+                'purchase_product_supplier_items.unit_price',
+                'purchase_product_supplier_items.total_price as total_amount',
                 'users.name as user_name',
             ])
             ->leftJoin('suppliers', 'purchase_product_suppliers.supplier_id', '=', 'suppliers.id')
-            ->leftJoin('products', 'purchase_product_suppliers.product_id', '=', 'products.id')
+            ->leftJoin('purchase_product_supplier_items', function($join) {
+                $join->on('purchase_product_suppliers.id', '=', 'purchase_product_supplier_items.purchase_product_supplier_id')
+                     ->whereNull('purchase_product_supplier_items.deleted_at');
+            })
+            ->leftJoin('products', function($join) {
+                $join->on('purchase_product_supplier_items.product_id', '=', 'products.id')
+                     ->whereNull('products.deleted_at');
+            })
             ->leftJoin('product_categories', 'products.category_id', '=', 'product_categories.id')
             ->leftJoin('users', 'purchase_product_suppliers.user_id', '=', 'users.id')
-            ->activeOnly();
+            ->whereNotIn('purchase_product_suppliers.status', ['Cancelled'])
+            ->whereNull('purchase_product_suppliers.deleted_at');
 
-        // Apply filters
-        $query = POReportSupplierProduct::applyFiltersToQuery($query, $this->filters);
+        // Apply filters using POReportSupplierProduct helper
+        if (!empty($this->filters['supplier_id'])) {
+            $query->where('purchase_product_suppliers.supplier_id', $this->filters['supplier_id']);
+        }
 
-        return $query->orderBy('order_date', 'desc');
+        if (!empty($this->filters['product_id'])) {
+            $query->where('purchase_product_supplier_items.product_id', $this->filters['product_id']);
+        }
+
+        if (!empty($this->filters['category_id'])) {
+            $query->where('product_categories.id', $this->filters['category_id']);
+        }
+
+        if (!empty($this->filters['type_po'])) {
+            $query->whereIn('purchase_product_suppliers.type_po', $this->filters['type_po']);
+        }
+
+        if (!empty($this->filters['status'])) {
+            $query->whereIn('purchase_product_suppliers.status', $this->filters['status']);
+        }
+
+        if (!empty($this->filters['status_paid'])) {
+            $query->whereIn('purchase_product_suppliers.status_paid', $this->filters['status_paid']);
+        }
+
+        if (!empty($this->filters['date_from'])) {
+            $query->whereDate('purchase_product_suppliers.order_date', '>=', $this->filters['date_from']);
+        }
+
+        if (!empty($this->filters['date_until'])) {
+            $query->whereDate('purchase_product_suppliers.order_date', '<=', $this->filters['date_until']);
+        }
+
+        if (!empty($this->filters['outstanding_only'])) {
+            $query->where('purchase_product_suppliers.status_paid', 'unpaid');
+        }
+
+        return $query->orderBy('purchase_product_suppliers.order_date', 'desc');
     }
 
     public function headings(): array
@@ -88,14 +142,14 @@ class POSupplierProductDetailSheet implements FromQuery, WithHeadings, WithMappi
             $po->product_name ?? 'Unknown Product',
             $po->product_code ?? 'N/A',
             $po->category_name ?? 'No Category',
-            number_format($po->quantity),
-            $po->unit_price,
-            $po->total_amount,
+            $po->quantity ? number_format($po->quantity) : '0',
+            $po->unit_price ?? 0,
+            $po->total_amount ?? 0,
             ucfirst($po->type_po ?? ''),
             $po->status,
             ucfirst($po->status_paid ?? 'Pending'),
-            $po->order_date ? $po->order_date->format('d/m/Y') : '',
-            $po->received_date ? $po->received_date->format('d/m/Y') : '',
+            $po->order_date ? \Carbon\Carbon::parse($po->order_date)->format('d/m/Y') : '',
+            $po->received_date ? \Carbon\Carbon::parse($po->received_date)->format('d/m/Y') : '',
             $outstandingAmount,
             $paidAmount,
             $po->user_name ?? '',
@@ -113,7 +167,11 @@ class POSupplierProductDetailSheet implements FromQuery, WithHeadings, WithMappi
         }
 
         // Generate full URL for supplier faktur
-        return URL::route('purchase-product-supplier.faktur', ['purchaseProduct' => $po->id]);
+        try {
+            return URL::route('purchase-product-supplier.faktur', ['purchaseProduct' => $po->id]);
+        } catch (\Exception $e) {
+            return '';
+        }
     }
 
     public function styles(Worksheet $sheet)

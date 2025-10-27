@@ -40,21 +40,41 @@ class POReportSupplierProductResource extends Resource
             ->modifyQueryUsing(function (Builder $query) {
                 $filters = session('supplier_product_filters', []);
 
-                // Join dengan supplier dan product untuk data lengkap
+                // Join dengan items, products, dan suppliers
                 $query->select([
-                    'purchase_product_suppliers.*',
+                    'purchase_product_suppliers.id',
+                    'purchase_product_suppliers.po_number',
+                    'purchase_product_suppliers.order_date',
+                    'purchase_product_suppliers.received_date',
+                    'purchase_product_suppliers.status',
+                    'purchase_product_suppliers.status_paid',
+                    'purchase_product_suppliers.type_po',
+                    'purchase_product_suppliers.user_id',
                     'suppliers.name as supplier_name',
                     'suppliers.code as supplier_code',
                     'products.name as product_name',
                     'products.code as product_code',
                     'product_categories.name as category_name',
+                    'purchase_product_supplier_items.quantity',
+                    'purchase_product_supplier_items.unit_price',
+                    'purchase_product_supplier_items.total_price as total_amount',
                 ])
                 ->leftJoin('suppliers', 'purchase_product_suppliers.supplier_id', '=', 'suppliers.id')
-                ->leftJoin('products', 'purchase_product_suppliers.product_id', '=', 'products.id')
+                ->leftJoin('purchase_product_supplier_items', function($join) {
+                    $join->on('purchase_product_suppliers.id', '=', 'purchase_product_supplier_items.purchase_product_supplier_id')
+                         ->whereNull('purchase_product_supplier_items.deleted_at');
+                })
+                ->leftJoin('products', function($join) {
+                    $join->on('purchase_product_supplier_items.product_id', '=', 'products.id')
+                         ->whereNull('products.deleted_at');
+                })
                 ->leftJoin('product_categories', 'products.category_id', '=', 'product_categories.id');
 
-                // Use existing scopes
-                $query->activeOnly(); // Exclude draft and cancelled
+                // Use existing scopes - ini sudah handle deleted_at untuk purchase_product_suppliers
+                $query->activeOnly(); // Exclude cancelled
+
+                // Tambahan: pastikan tidak ada yang deleted
+                $query->whereNull('purchase_product_suppliers.deleted_at');
 
                 // Apply session filters
                 if (!empty($filters['supplier_id'])) {
@@ -62,7 +82,7 @@ class POReportSupplierProductResource extends Resource
                 }
 
                 if (!empty($filters['product_id'])) {
-                    $query->where('purchase_product_suppliers.product_id', $filters['product_id']);
+                    $query->where('purchase_product_supplier_items.product_id', $filters['product_id']);
                 }
 
                 if (!empty($filters['category_id'])) {
@@ -207,13 +227,12 @@ class POReportSupplierProductResource extends Resource
                     ->label('View Original PO')
                     ->icon('heroicon-o-arrow-top-right-on-square')
                     ->color('info')
-                    ->url(fn ($record) => route('filament.admin.resources.purchase-product-suppliers.view', ['record' => $record]))
+                    ->url(fn ($record) => route('filament.admin.resources.purchase-product-suppliers.view', ['record' => $record->id]))
                     ->openUrlInNewTab()
                     ->visible(function () {
-                        // Only show if the original resource exists
                         try {
                             return class_exists('App\Filament\Resources\PurchaseProductSupplierResource');
-                        } catch (Exception $e) {
+                        } catch (\Exception $e) {
                             return false;
                         }
                     }),

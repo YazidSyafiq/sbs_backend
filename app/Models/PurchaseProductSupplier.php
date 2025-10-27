@@ -63,6 +63,72 @@ class PurchaseProductSupplier extends Model
                 $purchaseProductSupplier->sendStatusChangeEmail();
             }
         });
+
+        static::updating(function ($purchaseProductSupplier) {
+            // Track changes in payment status
+            if ($purchaseProductSupplier->isDirty('status_paid') || $purchaseProductSupplier->isDirty('bukti_tf')) {
+                $purchaseProductSupplier->handlePaymentStatusChange();
+            }
+        });
+    }
+
+    /**
+     * Handle payment status changes and update supplier accordingly
+     */
+    private function handlePaymentStatusChange(): void
+    {
+        // Skip if PO is not yet processed or is cancelled
+        if (!in_array($this->status, ['Processing', 'Received', 'Done'])) {
+            return;
+        }
+
+        // Skip if type is not credit (cash doesn't affect piutang)
+        if ($this->type_po !== 'credit') {
+            return;
+        }
+
+        $supplier = Supplier::find($this->supplier_id);
+        if (!$supplier) {
+            return;
+        }
+
+        $oldStatusPaid = $this->getOriginal('status_paid');
+        $newStatusPaid = $this->status_paid;
+
+        // Case 1: Changed from unpaid to paid - reduce piutang
+        if ($oldStatusPaid === 'unpaid' && $newStatusPaid === 'paid') {
+            Log::info("Payment status changed to paid, reducing piutang", [
+                'po_number' => $this->po_number,
+                'amount' => $this->total_amount,
+                'old_piutang' => $supplier->piutang
+            ]);
+
+            $supplier->update([
+                'piutang' => max(0, $supplier->piutang - $this->total_amount),
+            ]);
+
+            Log::info("Piutang updated", [
+                'po_number' => $this->po_number,
+                'new_piutang' => $supplier->fresh()->piutang
+            ]);
+        }
+        // Case 2: Changed from paid to unpaid - increase piutang
+        elseif ($oldStatusPaid === 'paid' && $newStatusPaid === 'unpaid') {
+            Log::info("Payment status changed to unpaid, increasing piutang", [
+                'po_number' => $this->po_number,
+                'amount' => $this->total_amount,
+                'old_piutang' => $supplier->piutang
+            ]);
+
+            $supplier->update([
+                'piutang' => $supplier->piutang + $this->total_amount,
+            ]);
+
+            Log::info("Piutang updated", [
+                'po_number' => $this->po_number,
+                'new_piutang' => $supplier->fresh()->piutang
+            ]);
+        }
     }
 
     private function sendStatusChangeEmail(): void
@@ -133,9 +199,12 @@ class PurchaseProductSupplier extends Model
             ]);
 
             if ($this->type_po === 'credit') {
-                $supplier->update([
-                    'piutang' => $supplier->piutang + $this->total_amount,
-                ]);
+                // Only add to piutang if unpaid
+                if ($this->status_paid === 'unpaid') {
+                    $supplier->update([
+                        'piutang' => $supplier->piutang + $this->total_amount,
+                    ]);
+                }
             }
         }
 
@@ -154,9 +223,10 @@ class PurchaseProductSupplier extends Model
                 'total_po' => $supplier->total_po - $this->total_amount,
             ]);
 
-            if($this->type_po == 'credit'){
+            // Only reduce piutang if credit and unpaid
+            if($this->type_po === 'credit' && $this->status_paid === 'unpaid'){
                 $supplier->update([
-                    'piutang' => $supplier->piutang - $this->total_amount,
+                    'piutang' => max(0, $supplier->piutang - $this->total_amount),
                 ]);
             }
         }
@@ -209,15 +279,8 @@ class PurchaseProductSupplier extends Model
             throw new \Exception('Payment proof must be provided before marking as Done.');
         }
 
-        if ($this->supplier) {
-            $supplier = Supplier::where('id', $this->supplier_id)->first();
-
-            if ($this->type_po === 'credit') {
-                $supplier->update([
-                    'piutang' => $supplier->piutang - $this->total_amount,
-                ]);
-            }
-        }
+        // Note: piutang sudah dikurangi saat status_paid berubah dari unpaid ke paid
+        // Jadi tidak perlu lagi kurangi piutang di sini untuk credit
 
         $this->status = 'Done';
         $this->save();

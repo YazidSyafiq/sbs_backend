@@ -284,8 +284,8 @@ class AllTransaction extends Model
             }
         }
 
-        // 5. Supplier PO transactions - CHANGED TO PI Product (Supplier)
-        $supplierPos = PurchaseProductSupplier::with(['product.category', 'supplier', 'user'])
+        // 5. Supplier PO transactions - PI Product (Supplier) dengan multiple products
+        $supplierPos = PurchaseProductSupplier::with(['items.product.category', 'supplier', 'user'])
             ->whereNotIn('status', ['Cancelled'])
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->orderBy('order_date', 'desc')
@@ -295,37 +295,40 @@ class AllTransaction extends Model
             // Check if paid or not
             $isPaid = in_array(strtolower($po->status_paid ?? ''), ['paid', 'completed']);
 
-            $virtualRecord = new static();
-            $virtualRecord->id = 'po_supplier_' . $po->id;
-            $virtualRecord->transaction_type = 'PI Product (Supplier)'; // CHANGED FROM 'PO Supplier'
-            $virtualRecord->transaction_id = $po->id;
-            $virtualRecord->po_number = $po->po_number;
-            $virtualRecord->transaction_name = $po->name;
-            $virtualRecord->date = $po->order_date;
-            $virtualRecord->branch = null;
-            $virtualRecord->user = $po->user->name ?? null;
-            $virtualRecord->status = $po->status;
-            $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
-            $virtualRecord->item_type = 'Supplier Purchase';
-            $virtualRecord->item_name = $po->product->name ?? 'Unknown Product';
-            $virtualRecord->item_code = $po->product->code ?? 'N/A';
-            $virtualRecord->category = $po->product->category->name ?? 'No Category';
-            $virtualRecord->quantity = $po->quantity;
-            $virtualRecord->unit_price = $po->unit_price;
-            // Only count as expense if paid (negative for cash out)
-            $virtualRecord->total_amount = $isPaid ? -$po->total_amount : 0;
-            // Only count cost if paid
-            $virtualRecord->cost_price = $isPaid ? $po->total_amount : 0;
-            // Outstanding = negative amount if unpaid (we owe supplier), 0 if paid
-            $virtualRecord->outstanding_amount = !$isPaid ? -$po->total_amount : 0;
-            $virtualRecord->supplier_technician = $po->supplier->name ?? null;
-            $virtualRecord->description = $po->notes;
-            $virtualRecord->exists = true;
+            // Loop through each item in the PO
+            foreach ($po->items as $item) {
+                if (!$item->product) continue; // Skip if product deleted
 
-            $transactions->push($virtualRecord);
+                $virtualRecord = new static();
+                $virtualRecord->id = 'po_supplier_' . $po->id . '_' . $item->id;
+                $virtualRecord->transaction_type = 'PI Product (Supplier)';
+                $virtualRecord->transaction_id = $po->id;
+                $virtualRecord->po_number = $po->po_number;
+                $virtualRecord->transaction_name = $po->name;
+                $virtualRecord->date = $po->order_date;
+                $virtualRecord->branch = null;
+                $virtualRecord->user = $po->user->name ?? null;
+                $virtualRecord->status = $po->status;
+                $virtualRecord->payment_status = ucfirst($po->status_paid ?? 'Pending');
+                $virtualRecord->item_type = 'Supplier Purchase';
+                $virtualRecord->item_name = $item->product->name ?? 'Unknown Product';
+                $virtualRecord->item_code = $item->product->code ?? 'N/A';
+                $virtualRecord->category = $item->product->category->name ?? 'No Category';
+                $virtualRecord->quantity = $item->quantity;
+                $virtualRecord->unit_price = $item->unit_price;
+                // Only count as expense if paid (negative for cash out)
+                $virtualRecord->total_amount = $isPaid ? -$item->total_price : 0;
+                // Only count cost if paid
+                $virtualRecord->cost_price = $isPaid ? $item->total_price : 0;
+                // Outstanding = negative amount if unpaid (we owe supplier), 0 if paid
+                $virtualRecord->outstanding_amount = !$isPaid ? -$item->total_price : 0;
+                $virtualRecord->supplier_technician = $po->supplier->name ?? null;
+                $virtualRecord->description = $po->notes;
+                $virtualRecord->exists = true;
+
+                $transactions->push($virtualRecord);
+            }
         }
-
-        return $transactions->sortByDesc('date')->values()->all();
     }
 
     /**

@@ -122,7 +122,7 @@ class AccountingReport extends Model
         // Total Revenue dari berbagai sumber
         $incomeRevenue = Income::whereBetween('date', [$dateFrom, $dateTo])->sum('income_amount');
 
-        // Revenue dari PO Products yang sudah paid (menggunakan cost analysis dari items)
+        // Revenue dari PO Products yang sudah paid
         $productRevenue = PurchaseProduct::with('items')
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'paid')
@@ -145,7 +145,7 @@ class AccountingReport extends Model
         // Total Cost dari berbagai sumber
         $expenseCost = Expense::whereBetween('date', [$dateFrom, $dateTo])->sum('expense_amount');
 
-        // Cost dari PO Products (menggunakan cost analysis dari items)
+        // Cost dari PO Products (menggunakan FIFO cost)
         $productCost = PurchaseProduct::with('items')
             ->whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'paid')
@@ -153,7 +153,6 @@ class AccountingReport extends Model
             ->get()
             ->flatMap->items
             ->sum(function($item) {
-                // Menggunakan cost_price yang sudah dihitung berdasarkan FIFO
                 return ($item->cost_price ?? 0) * $item->quantity;
             });
 
@@ -166,11 +165,14 @@ class AccountingReport extends Model
             ->flatMap->items
             ->sum('cost_price');
 
-        // Cost dari Supplier PO (purchase dari supplier)
-        $supplierCost = PurchaseProductSupplier::whereNotIn('status', ['Cancelled'])
+        // Cost dari Supplier PO (purchase dari supplier) - UPDATED untuk multiple products
+        $supplierCost = PurchaseProductSupplier::with('items')
+            ->whereNotIn('status', ['Cancelled'])
             ->where('status_paid', 'paid')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
-            ->sum('total_amount');
+            ->get()
+            ->flatMap->items
+            ->sum('total_price');
 
         $totalCost = $expenseCost + $productCost + $serviceCost + $supplierCost;
 
@@ -195,11 +197,10 @@ class AccountingReport extends Model
     }
 
     /**
-     * Get debt analysis - FIXED VERSION
+     * Get debt analysis - untuk multiple products per PO
      */
     public static function getDebtAnalysis($filters = [])
     {
-        // Default to last 12 months if no filters applied to date range
         if (empty($filters['date_from']) && empty($filters['date_until'])) {
             $dateFrom = Carbon::now()->subMonths(11)->startOfMonth()->toDateString();
             $dateTo = Carbon::now()->endOfMonth()->toDateString();
@@ -208,40 +209,33 @@ class AccountingReport extends Model
             $dateTo = !empty($filters['date_until']) ? $filters['date_until'] : Carbon::now()->endOfMonth()->toDateString();
         }
 
-        // Outstanding dari PO Products (yang belum bayar) - Customer berhutang ke kita
+        // Outstanding dari PO Products (yang belum bayar)
         $productOutstanding = PurchaseProduct::whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'unpaid')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Outstanding dari Service Purchase (yang belum bayar) - Customer berhutang ke kita
+        // Outstanding dari Service Purchase (yang belum bayar)
         $serviceOutstanding = ServicePurchase::whereNotIn('status', ['Draft', 'Cancelled'])
             ->where('status_paid', 'unpaid')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Outstanding dari Supplier PO (yang belum bayar) - Kita berhutang ke supplier
+        // Outstanding dari Supplier PO (yang belum bayar) - gunakan total_amount dari PO
         $supplierOutstanding = PurchaseProductSupplier::whereNotIn('status', ['Cancelled'])
             ->where('status_paid', 'unpaid')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->sum('total_amount');
 
-        // Debt to suppliers (yang harus dibayar ke supplier)
         $debtToSuppliers = $supplierOutstanding;
-
-        // Receivables (yang harus diterima dari customer)
         $receivables = $productOutstanding + $serviceOutstanding;
-
-        // PERBAIKAN: Receivables - Debt = Net Position
-        // Positif = kita akan terima lebih banyak dari customer daripada yang harus bayar ke supplier (GOOD)
-        // Negatif = kita harus bayar ke supplier lebih banyak daripada yang akan diterima dari customer (BAD)
         $netPosition = $receivables - $debtToSuppliers;
 
         return (object)[
             'total_outstanding' => $productOutstanding + $serviceOutstanding + $supplierOutstanding,
-            'receivables_from_customers' => $receivables, // Yang akan diterima dari customer
-            'debt_to_suppliers' => $debtToSuppliers, // Yang harus dibayar ke supplier
-            'net_debt_position' => $netPosition, // FIXED: Positif = bagus, Negatif = buruk
+            'receivables_from_customers' => $receivables,
+            'debt_to_suppliers' => $debtToSuppliers,
+            'net_debt_position' => $netPosition,
             'product_outstanding' => $productOutstanding,
             'service_outstanding' => $serviceOutstanding,
             'supplier_outstanding' => $supplierOutstanding,

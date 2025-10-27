@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Supplier extends Model
 {
@@ -19,6 +20,14 @@ class Supplier extends Model
         'piutang',
         'total_po'
     ];
+
+    /**
+     * Relasi ke Purchase Product Suppliers
+     */
+    public function purchaseProductSuppliers(): HasMany
+    {
+        return $this->hasMany(PurchaseProductSupplier::class);
+    }
 
     // Auto generate supplier code
     public static function generateCode(): string

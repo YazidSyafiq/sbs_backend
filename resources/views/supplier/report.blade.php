@@ -17,7 +17,7 @@
             line-height: 1.2;
             color: #333;
             margin: 0;
-            padding: 0;
+            a padding: 0;
             background-color: #f8f9fa;
         }
 
@@ -500,9 +500,9 @@
                         <th class="col-no">NO</th>
                         <th class="col-code">PO NUMBER</th>
                         <th class="col-name">SUPPLIER</th>
-                        <th class="col-contact">PRODUCT</th>
+                        <th style="width: 300px;">PRODUCTS</th>
                         <th class="col-address">ORDER DATE</th>
-                        <th class="col-piutang">QUANTITY</th>
+                        <th style="width: 80px; text-align: center;">ITEMS</th>
                         <th class="col-total-po">TOTAL AMOUNT</th>
                         <th class="col-status">PAYMENT STATUS</th>
                     </tr>
@@ -516,19 +516,39 @@
                                 <td class="col-name">
                                     {{ $order->supplier->name ?? '-' }}
                                     @if ($order->supplier)
-                                        <br><small>({{ $order->supplier->code }})</small>
+                                        <br><small style="color: #666;">({{ $order->supplier->code }})</small>
                                     @endif
                                 </td>
-                                <td class="col-contact">
-                                    {{ $order->product->name ?? '-' }}
-                                    @if ($order->product)
-                                        <br><small>({{ $order->product->code }})</small>
+                                <td style="padding: 6px; font-size: 7px;">
+                                    @if ($order->products->count() > 0)
+                                        @foreach ($order->products as $product)
+                                            <div
+                                                style="margin-bottom: 3px; padding: 3px; background: #f8f9fa; border-left: 2px solid #9b59b6; padding-left: 5px;">
+                                                <strong>{{ $product['name'] }}</strong>
+                                                <small style="color: #666;">({{ $product['code'] }})</small>
+                                                <br>
+                                                <span style="color: #666;">
+                                                    {{ number_format($product['quantity']) }} {{ $product['unit'] }}
+                                                    @ Rp {{ number_format($product['unit_price'], 0, ',', '.') }}
+                                                    = <strong>Rp
+                                                        {{ number_format($product['total_price'], 0, ',', '.') }}</strong>
+                                                </span>
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <em style="color: #999;">No products</em>
                                     @endif
                                 </td>
                                 <td class="col-address">{{ $order->order_date->format('d/m/Y') }}</td>
-                                <td class="col-piutang">{{ number_format($order->quantity) }}
-                                    {{ $order->unit ?? 'pcs' }}</td>
-                                <td class="col-total-po">Rp {{ number_format($order->total_amount, 0, ',', '.') }}</td>
+                                <td style="text-align: center; font-weight: 600;">
+                                    {{ $order->total_items }} items<br>
+                                    <small style="color: #666; font-weight: normal;">
+                                        ({{ number_format($order->total_quantity) }} units)
+                                    </small>
+                                </td>
+                                <td class="col-total-po" style="font-weight: 600;">
+                                    Rp {{ number_format($order->total_amount, 0, ',', '.') }}
+                                </td>
                                 <td class="col-status">
                                     <span
                                         class="status-badge status-{{ $order->status_paid === 'paid' ? 'no-piutang' : 'has-piutang' }}">
@@ -548,7 +568,6 @@
                 </tbody>
             </table>
         </div>
-
         <!-- Summary Section -->
         <div class="summary-section">
             <h3>Report Summary</h3>
