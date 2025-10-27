@@ -95,12 +95,6 @@
             border: 1px solid #bee5eb;
         }
 
-        .status-shipped {
-            background-color: #e2e3ff !important;
-            color: #4c4d7d !important;
-            border: 1px solid #c5c6f0;
-        }
-
         .status-received {
             background-color: #d4edda !important;
             color: #155724 !important;
@@ -111,6 +105,12 @@
             background-color: #d1f2eb !important;
             color: #00695c !important;
             border: 1px solid #b8e6d3;
+        }
+
+        .status-cancelled {
+            background-color: #f8d7da !important;
+            color: #721c24 !important;
+            border: 1px solid #f5c6cb;
         }
 
         .alert-info {
@@ -256,28 +256,46 @@
 
         /* Column specific widths */
         .col-product {
-            width: 45%;
+            width: 35%;
         }
 
         .col-code {
-            width: 30%;
+            width: 20%;
         }
 
         .col-qty {
-            width: 25%;
+            width: 15%;
+            text-align: center;
         }
 
         .col-price {
             width: 15%;
+            text-align: right;
         }
 
         .col-total {
             width: 15%;
+            text-align: right;
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .text-center {
+            text-align: center;
         }
 
         .total-row {
-            background-color: #f8f9fa !important;
+            background-color: #fff3cd !important;
             font-weight: 600;
+            border-top: 2px solid #ffc107 !important;
+        }
+
+        .total-row td {
+            padding: 12px 8px;
+            font-size: 13px;
+            color: #856404 !important;
         }
 
         .footer {
@@ -420,7 +438,10 @@
     <div class="container">
         <div class="header">
             <h1>PURCHASE ORDER SUPPLIER STATUS UPDATE</h1>
-            <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
+            <p><strong>{{ $purchaseProductSupplier->po_number }}</strong></p>
+            <span class="status-badge status-{{ strtolower($purchaseProductSupplier->status) }}">
+                {{ $purchaseProductSupplier->status }}
+            </span>
             <p>{{ now()->format('l, d F Y - H:i') }}</p>
         </div>
 
@@ -428,14 +449,14 @@
             @php
                 $statusMessages = [
                     'Requested' => 'A new purchase request has been submitted and is awaiting approval.',
-                    'Processing' => 'The purchase order has been approved and is now being processed.',
-                    'Received' => 'All items have been received successfully.',
-                    'Done' => 'The purchase order has been completed successfully.',
+                    'Processing' => 'The purchase order has been approved and is now being processed by the supplier.',
+                    'Received' => 'All items have been received from the supplier successfully.',
+                    'Done' => 'The purchase order has been completed successfully. Payment has been confirmed.',
                     'Cancelled' => 'The purchase order has been cancelled.',
                 ];
             @endphp
             <p><strong>STATUS UPDATE:</strong></p>
-            <p>{{ $statusMessages[$purchaseProduct->status] ?? 'Purchase order status has been updated.' }}</p>
+            <p>{{ $statusMessages[$purchaseProductSupplier->status] ?? 'Purchase order status has been updated.' }}</p>
         </div>
 
         <div class="po-info">
@@ -443,35 +464,45 @@
             <table class="po-details-table">
                 <tr>
                     <td class="po-info-label">Supplier</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->supplier->name }}</td>
+                    <td class="po-info-value">: {{ $purchaseProductSupplier->supplier->name }}
+                        ({{ $purchaseProductSupplier->supplier->code }})</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">PO Number</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->po_number }}</td>
+                    <td class="po-info-value">: {{ $purchaseProductSupplier->po_number }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">PO Name</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->name }}</td>
+                    <td class="po-info-value">: {{ $purchaseProductSupplier->name }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">Requested By</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->user->name }}</td>
+                    <td class="po-info-value">: {{ $purchaseProductSupplier->user->name }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">Type</td>
-                    <td class="po-info-value">: {{ ucfirst($purchaseProduct->type_po) }} Purchase</td>
+                    <td class="po-info-value">: {{ ucfirst($purchaseProductSupplier->type_po) }} Purchase</td>
+                </tr>
+                <tr>
+                    <td class="po-info-label">Payment Status</td>
+                    <td class="po-info-value">: {{ ucfirst($purchaseProductSupplier->status_paid ?? 'Unpaid') }}</td>
                 </tr>
                 <tr>
                     <td class="po-info-label">Order Date</td>
-                    <td class="po-info-value">: {{ $purchaseProduct->order_date->format('d M Y') }}</td>
+                    <td class="po-info-value">: {{ $purchaseProductSupplier->order_date->format('d M Y') }}</td>
                 </tr>
-                @if ($purchaseProduct->received_date)
+                @if ($purchaseProductSupplier->received_date)
                     <tr>
                         <td class="po-info-label">Received Date</td>
-                        <td class="po-info-value">: {{ $purchaseProduct->received_date->format('d M Y') }}
-                        </td>
+                        <td class="po-info-value">: {{ $purchaseProductSupplier->received_date->format('d M Y') }}</td>
                     </tr>
                 @endif
+                <tr>
+                    <td class="po-info-label">Total Amount</td>
+                    <td class="po-info-value" style="font-weight: 600; color: #856404 !important;">
+                        : Rp {{ number_format($purchaseProductSupplier->total_amount, 0, ',', '.') }}
+                    </td>
+                </tr>
             </table>
         </div>
 
@@ -483,34 +514,49 @@
                         <th class="col-product">Product Name</th>
                         <th class="col-code">Code</th>
                         <th class="col-qty">Qty</th>
+                        <th class="col-price">Unit Price</th>
+                        <th class="col-total">Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td><strong>{{ $purchaseProduct->product->name }}</strong></td>
-                        <td>{{ $purchaseProduct->product->code }}</td>
-                        <td>{{ $purchaseProduct->quantity }} pcs</td>
+                    @foreach ($purchaseProductSupplier->items as $item)
+                        <tr>
+                            <td><strong>{{ $item->product->name ?? 'Unknown Product' }}</strong></td>
+                            <td>{{ $item->product->code ?? 'N/A' }}</td>
+                            <td class="text-center">{{ number_format($item->quantity, 0, ',', '.') }}
+                                {{ $item->product->unit ?? 'pcs' }}</td>
+                            <td class="text-right">Rp {{ number_format($item->unit_price, 0, ',', '.') }}</td>
+                            <td class="text-right"><strong>Rp
+                                    {{ number_format($item->total_price, 0, ',', '.') }}</strong></td>
+                        </tr>
+                    @endforeach
+                    <tr class="total-row">
+                        <td colspan="4" style="text-align: right;"><strong>TOTAL AMOUNT:</strong></td>
+                        <td class="text-right"><strong>Rp
+                                {{ number_format($purchaseProductSupplier->total_amount, 0, ',', '.') }}</strong></td>
                     </tr>
                 </tbody>
             </table>
         </div>
 
-        @if ($purchaseProduct->notes)
-            <div style="margin-top: 20px; padding: 12px; background-color: #f8f9fa; border-radius: 5px;">
-                <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #333;">Notes:</h4>
-                <p style="margin: 0; font-size: 11px; color: #666;">{{ $purchaseProduct->notes }}</p>
+        @if ($purchaseProductSupplier->notes)
+            <div
+                style="margin-top: 20px; padding: 12px; background-color: #f8f9fa; border-radius: 5px; border-left: 3px solid #007bff;">
+                <h4 style="margin: 0 0 8px 0; font-size: 12px; color: #333; font-weight: 600;">Notes:</h4>
+                <p style="margin: 0; font-size: 11px; color: #666; line-height: 1.5;">
+                    {{ $purchaseProductSupplier->notes }}</p>
             </div>
         @endif
 
-        {{-- Invoice Download Button - Show only for Requested and Done status --}}
-        @if (in_array($purchaseProduct->status, ['Done']))
+        {{-- Invoice Download Button - Show only for Done status --}}
+        @if (in_array($purchaseProductSupplier->status, ['Requested', 'Processing', 'Received', 'Done']))
             <div class="invoice-section">
                 <p class="invoice-text">
-                    <strong>Purchase Order Faktur</strong><br><br>
+                    <strong>Purchase Order Faktur</strong>
                 </p>
-                <a href="{{ route('purchase-product-supplier.faktur', ['purchaseProduct' => $purchaseProduct->id]) }}"
+                <a href="{{ route('purchase-product-supplier.faktur', ['purchaseProductSupplier' => $purchaseProductSupplier->id]) }}"
                     class="invoice-button">
-                    Download Faktur
+                    📄 Download Faktur
                 </a>
                 <p style="font-size: 10px; color: #888; margin-top: 10px; font-style: italic;">
                     Click the button above to download the PDF document
@@ -519,10 +565,12 @@
         @endif
 
         <div class="footer">
-            <div style="text-align: center; margin-bottom: 15px;">
-                <img src="{{ $message->embed(public_path('default/images/img_logo.png')) }}"
-                    alt="{{ config('app.name') }}" class="logo">
-            </div>
+            @if (file_exists(public_path('default/images/img_logo.png')))
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <img src="{{ $message->embed(public_path('default/images/img_logo.png')) }}"
+                        alt="{{ config('app.name') }}" class="logo">
+                </div>
+            @endif
             <p><strong>Purchase Order Management System</strong></p>
             <p>This is an automated notification from your purchase management system.</p>
             <p style="margin: 0;"><em>{{ config('app.name') }} Team</em></p>
