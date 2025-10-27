@@ -1,4 +1,5 @@
 <?php
+// app/Models/POReportSupplierProduct.php
 
 namespace App\Models;
 
@@ -38,11 +39,11 @@ class POReportSupplierProduct extends Model
     }
 
     /**
-     * Relasi ke Product
+     * Relasi ke Items
      */
-    public function product(): BelongsTo
+    public function items(): HasMany
     {
-        return $this->belongsTo(Product::class);
+        return $this->hasMany(PurchaseProductSupplierItem::class, 'purchase_product_supplier_id');
     }
 
     /**
@@ -50,7 +51,7 @@ class POReportSupplierProduct extends Model
      */
     public function scopeActiveOnly($query)
     {
-        return $query->whereNotIn('status', ['Draft', 'Cancelled']);
+        return $query->whereNotIn('status', ['Cancelled']);
     }
 
     /**
@@ -71,14 +72,16 @@ class POReportSupplierProduct extends Model
             $query->where('supplier_id', $filters['supplier_id']);
         }
 
-        // Product filter
+        // Product filter - perlu join dengan items table
         if (!empty($filters['product_id'])) {
-            $query->where('product_id', $filters['product_id']);
+            $query->whereHas('items', function($q) use ($filters) {
+                $q->where('product_id', $filters['product_id']);
+            });
         }
 
         // Product category filter
         if (!empty($filters['category_id'])) {
-            $query->whereHas('product', function($q) use ($filters) {
+            $query->whereHas('items.product', function($q) use ($filters) {
                 $q->where('category_id', $filters['category_id']);
             });
         }
@@ -173,9 +176,7 @@ class POReportSupplierProduct extends Model
      */
     public static function getFilteredOverviewStats($filters = [])
     {
-        $query = static::with(['supplier', 'product'])->activeOnly();
-
-        // Apply filters
+        $query = static::with(['supplier', 'items.product'])->activeOnly();
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
@@ -187,23 +188,15 @@ class POReportSupplierProduct extends Model
         $paidAmount = $paidPos->sum('total_amount');
         $outstandingDebt = $unpaidPos->sum('total_amount');
 
-        // Calculate payment rate
         $paymentRate = $totalPosAmount > 0 ? round(($paidAmount / $totalPosAmount) * 100, 1) : 0;
 
         // Supplier statistics
         $uniqueSuppliers = $allPos->pluck('supplier_id')->unique()->count();
-        $topSupplierPos = $allPos->groupBy('supplier_id')->sortByDesc(function($group) {
-            return $group->sum('total_amount');
-        })->first();
-        $topSupplierValue = $topSupplierPos ? $topSupplierPos->sum('total_amount') : 0;
 
-        // Product statistics
-        $uniqueProducts = $allPos->pluck('product_id')->unique()->count();
-        $totalQuantity = $allPos->sum('quantity');
-        $topProductPos = $allPos->groupBy('product_id')->sortByDesc(function($group) {
-            return $group->sum('quantity');
-        })->first();
-        $topProductQuantity = $topProductPos ? $topProductPos->sum('quantity') : 0;
+        // Product statistics - hitung dari items
+        $allItems = $allPos->flatMap->items;
+        $uniqueProducts = $allItems->pluck('product_id')->unique()->count();
+        $totalQuantity = $allItems->sum('quantity');
 
         // Credit statistics
         $creditPos = $allPos->where('type_po', 'credit');
@@ -230,12 +223,10 @@ class POReportSupplierProduct extends Model
 
             // Supplier metrics
             'unique_suppliers' => $uniqueSuppliers,
-            'top_supplier_value' => $topSupplierValue,
 
             // Product metrics
             'unique_products' => $uniqueProducts,
             'total_quantity' => $totalQuantity,
-            'top_product_quantity' => $topProductQuantity,
             'average_order_value' => $allPos->count() > 0 ? round($totalPosAmount / $allPos->count(), 2) : 0,
 
             // Type counts
@@ -261,33 +252,31 @@ class POReportSupplierProduct extends Model
      */
     public static function getFilteredMonthlyTrends($filters = [])
     {
-        // Determine date range based on filters
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
             $startDate = !empty($filters['date_from']) ? Carbon::parse($filters['date_from']) : Carbon::now()->subYear();
             $endDate = !empty($filters['date_until']) ? Carbon::parse($filters['date_until']) : Carbon::now();
 
             $query = PurchaseProductSupplier::query()
-                ->whereNotIn('status', ['Draft', 'Cancelled'])
+                ->with(['items'])
+                ->whereNotIn('status', ['Cancelled'])
                 ->whereDate('order_date', '>=', $startDate)
                 ->whereDate('order_date', '<=', $endDate);
         } else {
-            // Default: last 12 months
             $startDate = Carbon::now()->subMonths(11)->startOfMonth();
             $endDate = Carbon::now();
 
             $query = PurchaseProductSupplier::query()
-                ->whereNotIn('status', ['Draft', 'Cancelled'])
+                ->with(['items'])
+                ->whereNotIn('status', ['Cancelled'])
                 ->where('order_date', '>=', $startDate);
         }
 
-        // Apply other filters (except date filters)
         $filtersWithoutDate = $filters;
         unset($filtersWithoutDate['date_from'], $filtersWithoutDate['date_until']);
         $query = static::applyFiltersToQuery($query, $filtersWithoutDate);
 
         $allPos = $query->get();
 
-        // Group by appropriate period
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
             $diffInDays = $startDate->diffInDays($endDate);
 
@@ -314,12 +303,10 @@ class POReportSupplierProduct extends Model
 
         $results = collect();
 
-        // Generate periods
         if (!empty($filters['date_from']) || !empty($filters['date_until'])) {
             $diffInDays = $startDate->diffInDays($endDate);
 
             if ($diffInDays <= 31) {
-                // Daily periods
                 for ($date = $startDate->copy(); $date->lte($endDate); $date->addDay()) {
                     $key = $date->format('Y-m-d');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -327,7 +314,7 @@ class POReportSupplierProduct extends Model
                     $totalAmount = $periodPos->sum('total_amount');
                     $paidAmount = $periodPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount');
                     $outstandingAmount = $periodPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
-                    $totalQuantity = $periodPos->sum('quantity');
+                    $totalQuantity = $periodPos->flatMap->items->sum('quantity');
 
                     $results->push((object)[
                         'period' => $key,
@@ -338,14 +325,13 @@ class POReportSupplierProduct extends Model
                         'outstanding_debt' => $outstandingAmount,
                         'total_quantity' => $totalQuantity,
                         'unique_suppliers' => $periodPos->pluck('supplier_id')->unique()->count(),
-                        'unique_products' => $periodPos->pluck('product_id')->unique()->count(),
+                        'unique_products' => $periodPos->flatMap->items->pluck('product_id')->unique()->count(),
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
                     ]);
                 }
             } elseif ($diffInDays <= 365) {
-                // Weekly periods
                 for ($date = $startDate->copy()->startOfWeek(); $date->lte($endDate); $date->addWeek()) {
                     $key = $date->format('Y-m-d');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -353,7 +339,7 @@ class POReportSupplierProduct extends Model
                     $totalAmount = $periodPos->sum('total_amount');
                     $paidAmount = $periodPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount');
                     $outstandingAmount = $periodPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
-                    $totalQuantity = $periodPos->sum('quantity');
+                    $totalQuantity = $periodPos->flatMap->items->sum('quantity');
 
                     $results->push((object)[
                         'period' => $key,
@@ -364,14 +350,13 @@ class POReportSupplierProduct extends Model
                         'outstanding_debt' => $outstandingAmount,
                         'total_quantity' => $totalQuantity,
                         'unique_suppliers' => $periodPos->pluck('supplier_id')->unique()->count(),
-                        'unique_products' => $periodPos->pluck('product_id')->unique()->count(),
+                        'unique_products' => $periodPos->flatMap->items->pluck('product_id')->unique()->count(),
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
                     ]);
                 }
             } else {
-                // Monthly periods
                 for ($date = $startDate->copy()->startOfMonth(); $date->lte($endDate); $date->addMonth()) {
                     $key = $date->format('Y-m');
                     $periodPos = $monthlyGroups->get($key, collect());
@@ -379,7 +364,7 @@ class POReportSupplierProduct extends Model
                     $totalAmount = $periodPos->sum('total_amount');
                     $paidAmount = $periodPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount');
                     $outstandingAmount = $periodPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
-                    $totalQuantity = $periodPos->sum('quantity');
+                    $totalQuantity = $periodPos->flatMap->items->sum('quantity');
 
                     $results->push((object)[
                         'period' => $key,
@@ -390,7 +375,7 @@ class POReportSupplierProduct extends Model
                         'outstanding_debt' => $outstandingAmount,
                         'total_quantity' => $totalQuantity,
                         'unique_suppliers' => $periodPos->pluck('supplier_id')->unique()->count(),
-                        'unique_products' => $periodPos->pluck('product_id')->unique()->count(),
+                        'unique_products' => $periodPos->flatMap->items->pluck('product_id')->unique()->count(),
                         'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                         'credit_pos' => $periodPos->where('type_po', 'credit')->count(),
                         'cash_pos' => $periodPos->where('type_po', 'cash')->count(),
@@ -398,7 +383,6 @@ class POReportSupplierProduct extends Model
                 }
             }
         } else {
-            // Default 12 months
             for ($i = 11; $i >= 0; $i--) {
                 $month = Carbon::now()->subMonths($i);
                 $monthKey = $month->format('Y-m');
@@ -407,7 +391,7 @@ class POReportSupplierProduct extends Model
                 $totalAmount = $monthPos->sum('total_amount');
                 $paidAmount = $monthPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount');
                 $outstandingAmount = $monthPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
-                $totalQuantity = $monthPos->sum('quantity');
+                $totalQuantity = $monthPos->flatMap->items->sum('quantity');
 
                 $results->push((object)[
                     'period' => $monthKey,
@@ -418,7 +402,7 @@ class POReportSupplierProduct extends Model
                     'outstanding_debt' => $outstandingAmount,
                     'total_quantity' => $totalQuantity,
                     'unique_suppliers' => $monthPos->pluck('supplier_id')->unique()->count(),
-                    'unique_products' => $monthPos->pluck('product_id')->unique()->count(),
+                    'unique_products' => $monthPos->flatMap->items->pluck('product_id')->unique()->count(),
                     'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                     'credit_pos' => $monthPos->where('type_po', 'credit')->count(),
                     'cash_pos' => $monthPos->where('type_po', 'cash')->count(),
@@ -434,7 +418,7 @@ class POReportSupplierProduct extends Model
      */
     public static function getFilteredSupplierStats($filters = [])
     {
-        $query = static::with(['supplier'])->activeOnly();
+        $query = static::with(['supplier', 'items'])->activeOnly();
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
@@ -450,6 +434,8 @@ class POReportSupplierProduct extends Model
             $outstandingDebt = $supplierPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
             $paymentRate = $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0;
 
+            $allItems = $supplierPos->flatMap->items;
+
             $results->push((object)[
                 'supplier_id' => $supplierId,
                 'supplier_name' => $supplier->name ?? 'Unknown Supplier',
@@ -459,8 +445,8 @@ class POReportSupplierProduct extends Model
                 'paid_amount' => $paidAmount,
                 'outstanding_debt' => $outstandingDebt,
                 'payment_rate' => $paymentRate,
-                'total_quantity' => $supplierPos->sum('quantity'),
-                'unique_products' => $supplierPos->pluck('product_id')->unique()->count(),
+                'total_quantity' => $allItems->sum('quantity'),
+                'unique_products' => $allItems->pluck('product_id')->unique()->count(),
                 'average_po_amount' => round($supplierPos->avg('total_amount'), 2),
                 'credit_pos' => $supplierPos->where('type_po', 'credit')->count(),
                 'cash_pos' => $supplierPos->where('type_po', 'cash')->count(),
@@ -475,20 +461,35 @@ class POReportSupplierProduct extends Model
      */
     public static function getFilteredProductStats($filters = [])
     {
-        $query = static::with(['product', 'product.category'])->activeOnly();
+        $query = static::with(['items.product.category'])->activeOnly();
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
-        $productGroups = $allPos->groupBy('product_id');
+        $allItems = $allPos->flatMap->items;
+        $productGroups = $allItems->groupBy('product_id');
 
         $results = collect();
 
-        foreach ($productGroups as $productId => $productPos) {
-            $product = $productPos->first()->product;
+        foreach ($productGroups as $productId => $productItems) {
+            $product = $productItems->first()->product;
 
-            $totalAmount = $productPos->sum('total_amount');
-            $paidAmount = $productPos->filter(fn($po) => $po->status_paid === 'paid')->sum('total_amount');
-            $outstandingDebt = $productPos->filter(fn($po) => $po->status_paid === 'unpaid')->sum('total_amount');
+            $totalAmount = $productItems->sum('total_price');
+            $totalQuantity = $productItems->sum('quantity');
+
+            // Get PO data for this product
+            $productPoIds = $productItems->pluck('purchase_product_supplier_id')->unique();
+            $productPos = $allPos->whereIn('id', $productPoIds);
+
+            $paidPos = $productPos->filter(fn($po) => $po->status_paid === 'paid');
+            $paidAmount = $paidPos->sum(function($po) use ($productId) {
+                return $po->items->where('product_id', $productId)->sum('total_price');
+            });
+
+            $unpaidPos = $productPos->filter(fn($po) => $po->status_paid === 'unpaid');
+            $outstandingDebt = $unpaidPos->sum(function($po) use ($productId) {
+                return $po->items->where('product_id', $productId)->sum('total_price');
+            });
+
             $paymentRate = $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0;
 
             $results->push((object)[
@@ -501,10 +502,10 @@ class POReportSupplierProduct extends Model
                 'paid_amount' => $paidAmount,
                 'outstanding_debt' => $outstandingDebt,
                 'payment_rate' => $paymentRate,
-                'total_quantity' => $productPos->sum('quantity'),
+                'total_quantity' => $totalQuantity,
                 'unique_suppliers' => $productPos->pluck('supplier_id')->unique()->count(),
-                'average_unit_price' => round($productPos->avg('unit_price'), 2),
-                'average_po_amount' => round($productPos->avg('total_amount'), 2),
+                'average_unit_price' => round($productItems->avg('unit_price'), 2),
+                'average_po_amount' => $productPos->count() > 0 ? round($totalAmount / $productPos->count(), 2) : 0,
                 'credit_pos' => $productPos->where('type_po', 'credit')->count(),
                 'cash_pos' => $productPos->where('type_po', 'cash')->count(),
             ]);
@@ -518,14 +519,14 @@ class POReportSupplierProduct extends Model
      */
     public static function getFilteredStatsByStatus($filters = [])
     {
-        $query = static::activeOnly();
+        $query = static::with(['items'])->activeOnly();
         $query = static::applyFiltersToQuery($query, $filters);
 
         $allPos = $query->get();
         $statusGroups = $allPos->groupBy('status');
 
         $results = collect();
-        foreach (['Requested', 'Processing', 'Shipped', 'Received', 'Done'] as $status) {
+        foreach (['Requested', 'Processing', 'Received', 'Done'] as $status) {
             $statusPos = $statusGroups->get($status, collect());
 
             if ($statusPos->count() > 0) {
@@ -541,9 +542,9 @@ class POReportSupplierProduct extends Model
                     'total_amount' => $totalAmount,
                     'paid_amount' => $paidAmount,
                     'outstanding_debt' => $outstandingAmount,
-                    'total_quantity' => $statusPos->sum('quantity'),
+                    'total_quantity' => $statusPos->flatMap->items->sum('quantity'),
                     'unique_suppliers' => $statusPos->pluck('supplier_id')->unique()->count(),
-                    'unique_products' => $statusPos->pluck('product_id')->unique()->count(),
+                    'unique_products' => $statusPos->flatMap->items->pluck('product_id')->unique()->count(),
                     'payment_rate' => $totalAmount > 0 ? round(($paidAmount / $totalAmount) * 100, 1) : 0,
                 ]);
             }

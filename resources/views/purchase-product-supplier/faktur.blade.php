@@ -1,3 +1,4 @@
+<!-- resources/views/purchase-product-supplier/faktur.blade.php -->
 <!DOCTYPE html>
 <html>
 
@@ -6,7 +7,6 @@
     <title>Faktur - {{ $purchaseProduct->po_number }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <!-- jsPDF library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
@@ -314,7 +314,6 @@
             font-weight: bold;
         }
 
-        /* Action Buttons */
         .action-buttons {
             margin: 20px 0;
             display: flex;
@@ -348,7 +347,6 @@
             transform: translateY(-1px);
         }
 
-        /* Loading Overlay */
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -385,7 +383,6 @@
             }
         }
 
-        /* Hide buttons when printing */
         @media print {
             .action-buttons {
                 display: none !important;
@@ -408,7 +405,6 @@
             }
         }
 
-        /* Mobile responsiveness */
         @media (max-width: 768px) {
             .action-buttons {
                 padding: 0 10px;
@@ -424,14 +420,12 @@
 </head>
 
 <body>
-    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay" style="display: none;">
         <div class="loading-spinner"></div>
         Generating PDF...
     </div>
 
     @if (!$isFromMobile)
-        <!-- Action Buttons -->
         <div class="action-buttons">
             <button class="btn btn-download" onclick="downloadFakturPDF()">
                 <span>📄</span> Download PDF
@@ -439,15 +433,12 @@
         </div>
     @endif
 
-
     <div class="container" id="faktur-content">
-        <!-- Header -->
         <div class="header">
             <h1>FAKTUR PURCHASE ORDER SUPPLIER</h1>
             <p><strong>{{ $purchaseProduct->po_number }}</strong></p>
         </div>
 
-        <!-- Company and Customer Info -->
         <div class="parties-info">
             <h3>Informasi Pihak Terkait</h3>
             <div class="parties-grid">
@@ -489,7 +480,6 @@
             </div>
         </div>
 
-        <!-- Faktur Details -->
         <div class="faktur-details">
             <h3>Detail Faktur</h3>
             <div class="details-grid">
@@ -530,7 +520,6 @@
             </div>
         </div>
 
-        <!-- Items Table - Simplified without price information -->
         <div class="table-container">
             <h3 style="margin: 0 0 4px 0; font-size: 9px; color: #333; font-weight: 600;">Daftar Produk</h3>
             <table class="items-table">
@@ -543,31 +532,32 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td style="text-align: center; font-weight: 600; color: #28a745;">1</td>
-                        <td>
-                            <strong>{{ $purchaseProduct->product->name }}</strong>
-                        </td>
-                        <td style="text-align: center;">{{ $purchaseProduct->product->code }}</td>
-                        <td style="text-align: center; font-weight: 600;">
-                            {{ floor($purchaseProduct->quantity) == $purchaseProduct->quantity
-                                ? number_format($purchaseProduct->quantity, 0, ',', '.')
-                                : number_format($purchaseProduct->quantity, 2, ',', '.') }}
-                            ({{ $purchaseProduct->product->unit }})
-                        </td>
-                    </tr>
+                    @foreach ($purchaseProduct->items as $index => $item)
+                        <tr>
+                            <td style="text-align: center; font-weight: 600; color: #28a745;">{{ $index + 1 }}</td>
+                            <td>
+                                <strong>{{ $item->product->name }}</strong>
+                            </td>
+                            <td style="text-align: center;">{{ $item->product->code }}</td>
+                            <td style="text-align: center; font-weight: 600;">
+                                {{ floor($item->quantity) == $item->quantity
+                                    ? number_format($item->quantity, 0, ',', '.')
+                                    : number_format($item->quantity, 2, ',', '.') }}
+                                ({{ $item->product->unit }})
+                            </td>
+                        </tr>
+                    @endforeach
                 </tbody>
             </table>
         </div>
 
+        @if ($purchaseProduct->notes)
+            <div class="notes-section">
+                <h4>Catatan:</h4>
+                <p>{{ $purchaseProduct->notes }}</p>
+            </div>
+        @endif
 
-        <div class="notes-section">
-            <h4>Catatan:</h4>
-            <p>{{ $purchaseProduct->notes }}</p>
-        </div>
-
-
-        <!-- Footer -->
         <div class="footer-section">
             @if (file_exists(public_path('default/images/img_logo.png')))
                 <div style="text-align: center; margin-bottom: 3px;">
@@ -582,10 +572,6 @@
     </div>
 
     <script>
-        function printFaktur() {
-            window.print();
-        }
-
         async function downloadFakturPDF() {
             try {
                 showLoading();
@@ -594,14 +580,12 @@
                 const filename =
                     `Faktur_Supplier_{{ $purchaseProduct->po_number }}_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.pdf`;
 
-                // Hide action buttons temporarily
                 const actionButtons = document.querySelector('.action-buttons');
                 const originalDisplay = actionButtons.style.display;
                 actionButtons.style.display = 'none';
 
-                // Create canvas from HTML element with higher quality
                 const canvas = await html2canvas(element, {
-                    scale: 2, // Higher resolution
+                    scale: 2,
                     useCORS: true,
                     allowTaint: false,
                     backgroundColor: '#ffffff',
@@ -613,13 +597,10 @@
                     windowHeight: window.innerHeight
                 });
 
-                // Restore action buttons
                 actionButtons.style.display = originalDisplay;
 
-                // Get image data from canvas
                 const imgData = canvas.toDataURL('image/jpeg', 0.95);
 
-                // Calculate dimensions for A4 landscape
                 const {
                     jsPDF
                 } = window.jspdf;
@@ -629,32 +610,26 @@
                     format: 'a4'
                 });
 
-                // A4 landscape dimensions in mm
-                const pdfWidth = 297; // A4 landscape width
-                const pdfHeight = 210; // A4 landscape height
+                const pdfWidth = 297;
+                const pdfHeight = 210;
 
-                // Calculate scaling to fit content properly
                 const canvasWidth = canvas.width;
                 const canvasHeight = canvas.height;
                 const ratio = canvasWidth / canvasHeight;
 
-                let imgWidth = pdfWidth - 20; // Leave 10mm margin on each side
+                let imgWidth = pdfWidth - 20;
                 let imgHeight = imgWidth / ratio;
 
-                // If height exceeds page height, scale down
                 if (imgHeight > pdfHeight - 20) {
-                    imgHeight = pdfHeight - 20; // Leave 10mm margin top/bottom
+                    imgHeight = pdfHeight - 20;
                     imgWidth = imgHeight * ratio;
                 }
 
-                // Center the image on the page
                 const x = (pdfWidth - imgWidth) / 2;
                 const y = (pdfHeight - imgHeight) / 2;
 
-                // Add image to PDF
                 pdf.addImage(imgData, 'JPEG', x, y, imgWidth, imgHeight);
 
-                // Set PDF properties
                 pdf.setProperties({
                     title: filename,
                     subject: 'Purchase Order Faktur',
@@ -662,7 +637,6 @@
                     creator: 'Faktur System'
                 });
 
-                // Save the PDF
                 pdf.save(filename);
 
                 hideLoading();

@@ -85,7 +85,6 @@ class PurchaseProductSupplierResource extends Resource
                             ->required(),
                         Forms\Components\Select::make('supplier_id')
                             ->options(function (Get $get) {
-                                // Filter out selected products kecuali current item
                                 return Supplier::select('id', 'name', 'code')
                                     ->get()
                                     ->mapWithKeys(function ($supplier) {
@@ -109,7 +108,7 @@ class PurchaseProductSupplierResource extends Resource
                         Forms\Components\DatePicker::make('received_date')
                             ->label('Received Date')
                             ->minDate(fn (Get $get) => $get('order_date'))
-                            ->disabled(fn (Get $get) => $get('status') !== 'Received' || $get('status') !== 'Done')
+                            ->disabled(fn (Get $get) => $get('status') !== 'Received' && $get('status') !== 'Done')
                             ->hidden(fn (string $context) => $context === 'create')
                             ->live(),
                         Forms\Components\Select::make('status')
@@ -128,76 +127,111 @@ class PurchaseProductSupplierResource extends Resource
                             ->required(),
                     ]),
                 Forms\Components\Section::make('Purchase Items')
-                    ->columns(4)
                     ->schema([
-                        Forms\Components\Select::make('product_id')
-                            ->label('Product')
-                            ->options(function (Get $get) {
-                                return Product::select('id', 'name', 'code')
-                                    ->get()
-                                    ->mapWithKeys(function ($product) {
-                                        return [$product->id => $product->name . ' (' . $product->code . ')'];
+                        Forms\Components\Repeater::make('items')
+                            ->relationship()
+                            ->columns(4)
+                            ->schema([
+                                Forms\Components\Select::make('product_id')
+                                    ->label('Product')
+                                    ->options(function (Get $get) {
+                                        $selectedProductIds = collect($get('../../items'))
+                                            ->pluck('product_id')
+                                            ->filter()
+                                            ->toArray();
+
+                                        $currentProductId = $get('product_id');
+
+                                        return Product::select('id', 'name', 'code')
+                                            ->when(count($selectedProductIds) > 0, function ($query) use ($selectedProductIds, $currentProductId) {
+                                                $excludeIds = array_diff($selectedProductIds, [$currentProductId]);
+                                                if (count($excludeIds) > 0) {
+                                                    $query->whereNotIn('id', $excludeIds);
+                                                }
+                                            })
+                                            ->get()
+                                            ->mapWithKeys(function ($product) {
+                                                return [$product->id => $product->name . ' (' . $product->code . ')'];
+                                            })
+                                            ->toArray();
                                     })
-                                    ->toArray();
-                            })
-                            ->searchable()
-                            ->placeholder('Select Product')
-                            ->afterStateUpdated(function ($state, Set $set) {
-                                if ($state) {
-                                    $product = Product::find($state);
-                                    $set('unit', $product->unit ?? 'pcs');
+                                    ->searchable()
+                                    ->preload()
+                                    ->required()
+                                    ->live()
+                                    ->disabled(fn (Get $get) => $get('../../status') !== 'Requested')
+                                    ->afterStateUpdated(function ($state, Set $set) {
+                                        // Optional: bisa set default unit price jika ada
+                                    }),
+                                Forms\Components\TextInput::make('quantity')
+                                    ->numeric()
+                                    ->step(0.01)
+                                    ->minValue(0.01)
+                                    ->required()
+                                    ->live()
+                                    ->formatStateUsing(function ($state) {
+                                        if (is_null($state)) {
+                                            return null;
+                                        }
+                                        return $state == floor($state) ? (string) intval($state) : $state;
+                                    })
+                                    ->suffix(function (Get $get) {
+                                        $productId = $get('product_id');
+                                        if (!$productId) {
+                                            return 'pcs';
+                                        }
+
+                                        $product = Product::find($productId);
+                                        return $product?->unit ?? 'pcs';
+                                    })
+                                    ->dehydrated()
+                                    ->disabled(fn (Get $get) => $get('../../status') !== 'Requested')
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                        $unitPrice = $get('unit_price') ?? 0;
+                                        $set('total_price', $state * $unitPrice);
+                                    }),
+                                Forms\Components\TextInput::make('unit_price')
+                                    ->label('Unit Price')
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->required()
+                                    ->live()
+                                    ->disabled(fn (Get $get) => $get('../../status') !== 'Requested')
+                                    ->afterStateUpdated(function ($state, Get $get, Set $set) {
+                                        $quantity = $get('quantity') ?? 0;
+                                        $set('total_price', $quantity * $state);
+                                    })
+                                    ->dehydrated(),
+                                Forms\Components\TextInput::make('total_price')
+                                    ->label('Total')
+                                    ->numeric()
+                                    ->prefix('Rp')
+                                    ->disabled()
+                                    ->dehydrated(),
+                            ])
+                            ->live()
+                            ->addAction(
+                                fn (Forms\Components\Actions\Action $action) => $action
+                                    ->label('Add Product')
+                                    ->icon('heroicon-m-plus')
+                            )
+                            ->disabled(fn (Get $get) => $get('status') !== 'Requested')
+                            ->deletable(fn (Get $get) => $get('status') === 'Requested')
+                            ->reorderable()
+                            ->collapsible()
+                            ->minItems(1)
+                            ->itemLabel(function (array $state): ?string {
+                                if (!isset($state['product_id']) || !$state['product_id']) {
+                                    return 'New Product';
                                 }
-                            })
-                            ->preload()
-                            ->required()
-                            ->live()
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
-                        Forms\Components\TextInput::make('quantity')
-                            ->numeric()
-                            ->step(0.01) // Memperbolehkan desimal
-                            ->minValue(0.01)
-                            ->required()
-                            ->live()
-                            ->formatStateUsing(function ($state) {
-                                if (is_null($state)) {
-                                    return null;
+
+                                $product = Product::find($state['product_id']);
+                                if (!$product) {
+                                    return 'Unknown Product';
                                 }
-                                // Hilangkan desimal jika nilainya bulat
-                                return $state == floor($state) ? (string) intval($state) : $state;
-                            })
-                            ->dehydrated()
-                            ->placeholder('Enter Quantity')
-                            ->hint('Example: 10 or 10.5')
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested'),
-                        Forms\Components\TextInput::make('unit')
-                            ->label('Unit')
-                            ->required()
-                            ->live()
-                            ->dehydrated()
-                            ->placeholder('Enter Unit')
-                            ->afterStateHydrated(function ($state, $set, $record) {
-                                // Populate unit saat form di-load untuk edit
-                                if ($record && $record->product) {
-                                    $set('unit', $record->product->unit ?? 'pcs');
-                                } elseif (!$state) {
-                                    $set('unit', 'pcs'); // default untuk create
-                                }
-                            })
-                            ->hint('Example: pcs, kg, etc')
-                            ->disabled(),
-                        Forms\Components\TextInput::make('unit_price')
-                            ->label('Unit Price')
-                            ->numeric()
-                            ->prefix('Rp')
-                            ->required()
-                            ->placeholder('Enter Unit Price')
-                            ->hint('Example: 10000')
-                            ->live()
-                            ->afterStateUpdated(function ($state, Get $get, Set $set) {
-                                $quantity = $get('quantity') ?? 0;
-                                $set('total_price', $quantity * $state);
-                            })
-                            ->dehydrated(),
+
+                                return $product->name . ' (' . $product->code . ')';
+                            }),
                     ]),
                 Forms\Components\Section::make('Order Summary')
                     ->columns(1)
@@ -206,9 +240,14 @@ class PurchaseProductSupplierResource extends Resource
                             ->label('')
                             ->live()
                             ->content(function (Get $get) {
-                                $quantity = (int) $get('quantity') ?? 0;
-                                $unitPrice = (int) $get('unit_price') ?? 0;
-                                $total = $quantity * $unitPrice;
+                                $items = $get('items') ?? [];
+                                $total = 0;
+
+                                foreach ($items as $item) {
+                                    if (isset($item['total_price']) && is_numeric($item['total_price'])) {
+                                        $total += $item['total_price'];
+                                    }
+                                }
 
                                 return 'Total Amount: Rp ' . number_format($total, 0, ',', '.');
                             })
@@ -218,9 +257,16 @@ class PurchaseProductSupplierResource extends Resource
                         Forms\Components\Hidden::make('total_amount')
                             ->live()
                             ->default(function (Get $get) {
-                                $quantity = $get('quantity') ?? 0;
-                                $unitPrice = $get('unit_price') ?? 0;
-                                return $quantity * $unitPrice;
+                                $items = $get('items') ?? [];
+                                $total = 0;
+
+                                foreach ($items as $item) {
+                                    if (isset($item['total_price']) && is_numeric($item['total_price'])) {
+                                        $total += $item['total_price'];
+                                    }
+                                }
+
+                                return $total;
                             })
                             ->dehydrated(),
                     ]),
@@ -229,19 +275,14 @@ class PurchaseProductSupplierResource extends Resource
                     ->hidden(function (Get $get, string $context) {
                         $typePo = $get('type_po');
 
-                        // Hidden jika type_po belum dipilih
                         if (!$typePo) {
                             return true;
                         }
 
-                        // Hidden jika credit DAN context adalah create
                         if ($typePo === 'credit' && $context === 'create') {
                             return true;
                         }
 
-                        // Tampilkan untuk kondisi lainnya:
-                        // - Cash (create & edit)
-                        // - Credit (hanya edit)
                         return false;
                     })
                     ->schema([
@@ -262,8 +303,8 @@ class PurchaseProductSupplierResource extends Resource
                             ->maxSize(3072)
                             ->disk('public')
                             ->columnSpanFull()
-                            ->openable() // Tambahkan ini untuk full screen view
-                            ->downloadable() // Optional: untuk bisa download
+                            ->openable()
+                            ->downloadable()
                             ->disabled(fn (Get $get) => $get('status') === 'Done')
                             ->directory('po_supplier')
                             ->required()
@@ -281,7 +322,7 @@ class PurchaseProductSupplierResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->columns([
-               Tables\Columns\TextColumn::make('po_number')
+                Tables\Columns\TextColumn::make('po_number')
                     ->label('PO Number')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('name')
@@ -322,15 +363,9 @@ class PurchaseProductSupplierResource extends Resource
                         'unpaid' => 'danger',
                         'paid' => 'success'
                     }),
-                Tables\Columns\TextColumn::make('product.name')
-                    ->label('Product')
-                    ->formatStateUsing(fn ($record) =>
-                        $record->product
-                            ? $record->product->name . ' (' . $record->product->code . ')'
-                            : '-'
-                    )
-                    ->searchable(['product.name', 'product.code'])
-                    ->description(fn ($record): string => 'Qty: ' . number_format($record->quantity) . ' ' . ($record->product->unit ?? 'pcs'), position: 'below'),
+                Tables\Columns\TextColumn::make('items_count')
+                    ->label('Items')
+                    ->counts('items'),
                 Tables\Columns\TextColumn::make('total_amount')
                     ->label('Total Amount')
                     ->formatStateUsing(function ($state) {
@@ -391,15 +426,6 @@ class PurchaseProductSupplierResource extends Resource
                     ->preload()
                     ->multiple()
                     ->placeholder('All Suppliers')
-                    ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' (' . $record->code . ')'),
-
-                Tables\Filters\SelectFilter::make('product')
-                    ->relationship('product', 'name')
-                    ->label('Product')
-                    ->searchable()
-                    ->preload()
-                    ->multiple()
-                    ->placeholder('All Products')
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' (' . $record->code . ')'),
 
                 Tables\Filters\SelectFilter::make('status')
@@ -479,7 +505,7 @@ class PurchaseProductSupplierResource extends Resource
                     ->modalDescription('Is this purchase order being processed by the supplier?'),
 
                 Tables\Actions\Action::make('receive')
-                    ->label('Receive') // lebih pas ketimbang 'Received' untuk action button
+                    ->label('Receive')
                     ->icon('heroicon-m-archive-box')
                     ->color('info')
                     ->action(function (PurchaseProductSupplier $record) {
@@ -489,7 +515,7 @@ class PurchaseProductSupplierResource extends Resource
                             ->title('Purchase Order Received')
                             ->body("Purchase order {$record->po_number} has been successfully received.")
                             ->success()
-                            ->duration(5000) // 5 detik biar cukup terbaca
+                            ->duration(5000)
                             ->send();
                     })
                     ->visible(fn (PurchaseProductSupplier $record) => $record->status === 'Processing')
@@ -531,7 +557,7 @@ class PurchaseProductSupplierResource extends Resource
                         ->color('success')
                         ->url(fn (PurchaseProductSupplier $record): string => route('purchase-product-supplier.faktur', $record))
                         ->openUrlInNewTab()
-                        ->visible(fn (PurchaseProductSupplier $record) => in_array($record->status, ['Shipped', 'Received', 'Done'])),
+                        ->visible(fn (PurchaseProductSupplier $record) => in_array($record->status, ['Requested', 'Processing','Received', 'Done'])),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make()
                         ->visible(fn (PurchaseProductSupplier $record) =>

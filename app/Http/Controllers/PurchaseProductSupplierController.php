@@ -1,153 +1,130 @@
 <?php
+// app/Http/Controllers/PurchaseProductSupplierController.php
 
 namespace App\Http\Controllers;
 
 use App\Models\PurchaseProductSupplier;
-use App\Models\Product;
 use App\Models\Supplier;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class PurchaseProductSupplierController extends Controller
 {
-    private function getCompanyInfo()
+    /**
+     * Get company info from environment variables
+     */
+    private function getCompanyInfo(): array
     {
         return [
-            'name' => env('COMPANY_NAME', 'Your Company Name'),
-            'address' => env('COMPANY_ADDRESS', 'Jl. Example Street No. 123'),
-            'city' => env('COMPANY_CITY', 'Jakarta, Indonesia'),
-            'phone' => env('COMPANY_PHONE', '+62 21 1234 5678'),
-            'email' => env('COMPANY_EMAIL', 'info@yourcompany.com'),
-            'website' => env('COMPANY_WEBSITE', 'www.yourcompany.com'),
+            'name' => env('COMPANY_NAME', 'PT. Example Company'),
+            'address' => env('COMPANY_ADDRESS', 'Jl. Contoh No. 123'),
+            'city' => env('COMPANY_CITY', 'Jakarta'),
+            'phone' => env('COMPANY_PHONE', '021-12345678'),
         ];
     }
 
     /**
-     * Detect if request is from mobile/Flutter app
+     * Check if request is from mobile
      */
-    private function isMobileAccess(Request $request)
+    private function isMobileAccess(): bool
     {
-        // Method 1: Check for query parameter
-        if ($request->has('mobile') || $request->has('flutter')) {
-            return true;
-        }
-
-        return false;
+        return request()->has('mobile') && request()->mobile == 'true';
     }
 
-    public function faktur(Request $request, PurchaseProductSupplier $purchaseProduct)
-    {
-        $purchaseProduct->load([]);
-        $companyInfo = $this->getCompanyInfo();
-        $isFromMobile = $this->isMobileAccess($request);
-
-        return view('purchase-product-supplier.faktur', compact('purchaseProduct', 'companyInfo', 'isFromMobile'));
-    }
-
+    /**
+     * Generate report view
+     */
     public function report(Request $request)
     {
-        // Get filter parameters
         $fromDate = $request->from_date ? Carbon::parse($request->from_date) : Carbon::now()->startOfMonth();
         $untilDate = $request->until_date ? Carbon::parse($request->until_date) : Carbon::now();
-        $supplierId = $request->supplier_id;
-        $productId = $request->product_id;
-        $typePo = $request->type_po;
-        $statusPaid = $request->status_paid;
-        $status = $request->status;
 
-        // Build query for PurchaseProductSupplier
-        $query = PurchaseProductSupplier::with(['user.branch', 'product', 'supplier'])
-            ->whereBetween('order_date', [$fromDate, $untilDate]);
+        $query = PurchaseProductSupplier::with(['supplier', 'items.product', 'user'])
+            ->whereDate('order_date', '>=', $fromDate)
+            ->whereDate('order_date', '<=', $untilDate)
+            ->whereNotIn('status', ['Cancelled']);
 
         // Apply filters
-        if ($supplierId) {
-            $query->where('supplier_id', $supplierId);
+        if ($request->supplier_id) {
+            $query->where('supplier_id', $request->supplier_id);
         }
 
-        if ($productId) {
-            $query->where('product_id', $productId);
+        if ($request->product_id) {
+            $query->whereHas('items', function($q) use ($request) {
+                $q->where('product_id', $request->product_id);
+            });
         }
 
-        if ($typePo) {
-            $query->where('type_po', $typePo);
+        if ($request->type_po) {
+            $query->where('type_po', $request->type_po);
         }
 
-        if ($statusPaid) {
-            $query->where('status_paid', $statusPaid);
+        if ($request->status_paid) {
+            $query->where('status_paid', $request->status_paid);
         }
 
-        if ($status) {
-            $query->where('status', $status);
+        if ($request->status) {
+            $query->where('status', $request->status);
         }
 
         $purchaseProductSuppliers = $query->orderBy('order_date', 'desc')->get();
 
         // Calculate totals
-        $totalAmount = $purchaseProductSuppliers->sum('total_amount');
         $totalOrders = $purchaseProductSuppliers->count();
-        $totalQuantity = $purchaseProductSuppliers->sum('quantity');
-
-        // Group by status for additional insights
-        $statusSummary = $purchaseProductSuppliers->groupBy('status')->map(function ($items) {
-            return [
-                'count' => $items->count(),
-                'amount' => $items->sum('total_amount')
-            ];
+        $totalAmount = $purchaseProductSuppliers->sum('total_amount');
+        $totalQuantity = $purchaseProductSuppliers->sum(function($po) {
+            return $po->items->sum('quantity');
         });
 
-        // Group by supplier
-        $supplierSummary = $purchaseProductSuppliers->groupBy('supplier.name')->map(function ($items) {
-            return [
-                'count' => $items->count(),
-                'amount' => $items->sum('total_amount'),
-                'quantity' => $items->sum('quantity')
-            ];
-        });
+        // Filter labels for display
+        $filterLabels = [];
+        if ($request->supplier_id) {
+            $supplier = Supplier::find($request->supplier_id);
+            $filterLabels['supplier'] = $supplier ? $supplier->name : 'Unknown';
+        }
+        if ($request->product_id) {
+            $product = Product::find($request->product_id);
+            $filterLabels['product'] = $product ? $product->name : 'Unknown';
+        }
+        if ($request->type_po) {
+            $filterLabels['type_po'] = ucfirst($request->type_po);
+        }
+        if ($request->status_paid) {
+            $filterLabels['payment_status'] = ucfirst($request->status_paid);
+        }
+        if ($request->status) {
+            $filterLabels['status'] = $request->status;
+        }
 
-        // Get filter labels for display
-        $filterLabels = $this->getFilterLabels($request);
         $companyInfo = $this->getCompanyInfo();
 
         return view('purchase-product-supplier.report', compact(
             'purchaseProductSuppliers',
             'fromDate',
             'untilDate',
-            'totalAmount',
             'totalOrders',
+            'totalAmount',
             'totalQuantity',
-            'statusSummary',
-            'supplierSummary',
             'filterLabels',
             'companyInfo'
         ));
     }
 
-    private function getFilterLabels(Request $request)
+    /**
+     * Generate faktur view
+     */
+    public function faktur(PurchaseProductSupplier $purchaseProduct)
     {
-        $labels = [];
+        $purchaseProduct->load(['supplier', 'items.product', 'user']);
 
-        if ($request->supplier_id) {
-            $supplier = Supplier::find($request->supplier_id);
-            $labels['supplier'] = $supplier ? $supplier->name . ' (' . $supplier->code . ')' : 'Unknown';
-        }
+        $companyInfo = $this->getCompanyInfo();
+        $isFromMobile = $this->isMobileAccess();
 
-        if ($request->product_id) {
-            $product = Product::find($request->product_id);
-            $labels['product'] = $product ? $product->name . ' (' . $product->code . ')' : 'Unknown';
-        }
-
-        if ($request->type_po) {
-            $labels['type_po'] = ucfirst($request->type_po) . ' Purchase';
-        }
-
-        if ($request->status_paid) {
-            $labels['status_paid'] = ucfirst($request->status_paid);
-        }
-
-        if ($request->status) {
-            $labels['status'] = $request->status;
-        }
-
-        return $labels;
+        return view('purchase-product-supplier.faktur', compact(
+            'purchaseProduct',
+            'companyInfo',
+            'isFromMobile'
+        ));
     }
 }
