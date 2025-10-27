@@ -14,14 +14,14 @@ class PurchaseOrderSupplierProductsNotification extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public $purchaseProduct;
+    public $purchaseProductSupplier;
 
     /**
      * Create a new message instance.
      */
-    public function __construct(PurchaseProductSupplier $purchaseProduct)
+    public function __construct(PurchaseProductSupplier $purchaseProductSupplier)
     {
-        $this->purchaseProduct = $purchaseProduct;
+        $this->purchaseProductSupplier = $purchaseProductSupplier;
     }
 
     /**
@@ -37,10 +37,10 @@ class PurchaseOrderSupplierProductsNotification extends Mailable
             'Cancelled' => 'Purchase Order Cancelled',
         ];
 
-        $subject = $statusMessages[$this->purchaseProduct->status] ?? 'Purchase Order Status Update';
+        $subject = $statusMessages[$this->purchaseProductSupplier->status] ?? 'Purchase Order Status Update';
 
         return new Envelope(
-            subject: $subject . ' - ' . $this->purchaseProduct->po_number,
+            subject: $subject . ' - ' . $this->purchaseProductSupplier->po_number,
         );
     }
 

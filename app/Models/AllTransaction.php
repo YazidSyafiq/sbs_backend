@@ -212,7 +212,7 @@ class AllTransaction extends Model
 
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_product_' . $po->id . '_' . $item->id;
-                $virtualRecord->transaction_type = 'SI Product'; // CHANGED FROM 'PO Product'
+                $virtualRecord->transaction_type = 'SI Product';
                 $virtualRecord->transaction_id = $po->id;
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
@@ -255,7 +255,7 @@ class AllTransaction extends Model
             foreach ($po->items as $item) {
                 $virtualRecord = new static();
                 $virtualRecord->id = 'po_service_' . $po->id . '_' . $item->id;
-                $virtualRecord->transaction_type = 'SI Service'; // CHANGED FROM 'PO Service'
+                $virtualRecord->transaction_type = 'SI Service';
                 $virtualRecord->transaction_id = $po->id;
                 $virtualRecord->po_number = $po->po_number;
                 $virtualRecord->transaction_name = $po->name;
@@ -286,7 +286,7 @@ class AllTransaction extends Model
 
         // 5. Supplier PO transactions - PI Product (Supplier) dengan multiple products
         $supplierPos = PurchaseProductSupplier::with(['items.product.category', 'supplier', 'user'])
-            ->whereNotIn('status', ['Cancelled'])
+            ->where('status', '!=', 'Cancelled')
             ->whereBetween('order_date', [$dateFrom, $dateTo])
             ->orderBy('order_date', 'desc')
             ->get();
@@ -329,6 +329,8 @@ class AllTransaction extends Model
                 $transactions->push($virtualRecord);
             }
         }
+
+        return $transactions;
     }
 
     /**

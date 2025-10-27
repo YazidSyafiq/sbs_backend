@@ -31,7 +31,12 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
     public function handle()
     {
         try {
-            $purchaseProductSupplier = PurchaseProductSupplier::find($this->purchaseProductSupplierId);
+            // Load PurchaseProductSupplier dengan relasi yang dibutuhkan
+            $purchaseProductSupplier = PurchaseProductSupplier::with([
+                'items.product',
+                'supplier',
+                'user'
+            ])->find($this->purchaseProductSupplierId);
 
             if (!$purchaseProductSupplier) {
                 Log::error("PurchaseProductSupplier not found", [
@@ -46,7 +51,6 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
             switch ($this->status) {
                 case 'Requested':
                 case 'Processing':
-                case 'Shipped':
                 case 'Received':
                 case 'Cancelled':
                 case 'Done':
@@ -56,6 +60,10 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
                     break;
 
                 default:
+                    Log::info("No email recipients for status", [
+                        'status' => $this->status,
+                        'po_number' => $purchaseProductSupplier->po_number
+                    ]);
                     return;
             }
 
@@ -70,25 +78,36 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
                     Log::info("PO Supplier status email sent", [
                         'po_number' => $purchaseProductSupplier->po_number,
                         'status' => $this->status,
-                        'recipient' => $recipient->email
+                        'recipient' => $recipient->email,
+                        'items_count' => $purchaseProductSupplier->items->count()
                     ]);
                 } catch (\Exception $e) {
                     Log::error("Failed to send PO Supplier status email", [
                         'po_number' => $purchaseProductSupplier->po_number,
                         'status' => $this->status,
                         'recipient' => $recipient->email,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
                     ]);
                 }
 
                 // Kirim Firebase Notification
                 $this->sendFirebaseNotification($purchaseProductSupplier, $recipient);
             }
+
+            Log::info("PO Supplier notification job completed", [
+                'po_number' => $purchaseProductSupplier->po_number,
+                'status' => $this->status,
+                'recipients_count' => $recipients->count(),
+                'items_count' => $purchaseProductSupplier->items->count()
+            ]);
+
         } catch (\Exception $e) {
             Log::error("Failed to process PO Supplier status email job", [
                 'purchase_product_supplier_id' => $this->purchaseProductSupplierId,
                 'status' => $this->status,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -115,28 +134,36 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
 
             $notification = Notification::create($title, $body);
 
+            // Prepare notification data
+            $notificationData = [
+                'id' => (string)$purchaseProductSupplier->id,
+                'po_number' => $purchaseProductSupplier->po_number,
+                'status' => $this->status,
+                'type' => 'purchase_order_supplier',
+                'supplier_name' => $purchaseProductSupplier->supplier->name ?? '',
+                'total_amount' => (string)$purchaseProductSupplier->total_amount,
+                'items_count' => (string)$purchaseProductSupplier->items->count(),
+                'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
+            ];
+
             $message = CloudMessage::withTarget('token', $deviceToken)
                 ->withNotification($notification)
-                ->withData([
-                    'id' => (string)$purchaseProductSupplier->id,
-                    'po_number' => $purchaseProductSupplier->po_number,
-                    'status' => $this->status,
-                    'type' => 'purchase_order_supplier',
-                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK'
-                ]);
+                ->withData($notificationData);
 
             $messaging->send($message);
 
             Log::info("Firebase notification sent", [
                 'po_number' => $purchaseProductSupplier->po_number,
                 'status' => $this->status,
-                'user_id' => $user->id
+                'user_id' => $user->id,
+                'items_count' => $purchaseProductSupplier->items->count()
             ]);
         } catch (\Exception $e) {
             Log::error('Firebase Notification Error', [
                 'po_number' => $purchaseProductSupplier->po_number,
                 'user_id' => $user->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -144,9 +171,8 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
     protected function getNotificationTitle($status)
     {
         $titles = [
-            'Requested' => 'New PO Supplier',
+            'Requested' => 'New PO Supplier Requested',
             'Processing' => 'PO Supplier in Processing',
-            'Shipped' => 'PO Supplier Has Been Shipped',
             'Received' => 'PO Supplier Received',
             'Done' => 'PO Supplier Completed',
             'Cancelled' => 'PO Supplier Cancelled'
@@ -159,16 +185,30 @@ class SendPurchaseProductSupplierEmailJob implements ShouldQueue
     {
         $status = $this->status;
         $poNumber = $purchaseProductSupplier->po_number;
+        $itemsCount = $purchaseProductSupplier->items->count();
+        $totalAmount = number_format($purchaseProductSupplier->total_amount, 0, ',', '.');
+
+        // Get first few product names for context
+        $productNames = $purchaseProductSupplier->items
+            ->take(2)
+            ->pluck('product.name')
+            ->filter()
+            ->join(', ');
+
+        if ($itemsCount > 2) {
+            $productNames .= " +{$itemsCount} items";
+        } elseif ($itemsCount == 1) {
+            $productNames = $purchaseProductSupplier->items->first()->product->name ?? 'Product';
+        }
 
         $bodies = [
-            'Requested' => "PO Supplier {$poNumber} has been requested and awaiting approval",
-            'Processing' => "PO Supplier {$poNumber} is now being processed",
-            'Shipped' => "PO Supplier {$poNumber} has been shipped",
-            'Received' => "PO Supplier {$poNumber} has been received",
-            'Done' => "PO Supplier {$poNumber} has been completed",
-            'Cancelled' => "PO Supplier {$poNumber} has been cancelled"
+            'Requested' => "PO {$poNumber} requested with {$itemsCount} item(s) - {$productNames}",
+            'Processing' => "PO {$poNumber} is being processed - Total: Rp {$totalAmount}",
+            'Received' => "PO {$poNumber} received successfully - {$itemsCount} item(s)",
+            'Done' => "PO {$poNumber} completed - Total: Rp {$totalAmount}",
+            'Cancelled' => "PO {$poNumber} has been cancelled"
         ];
 
-        return $bodies[$status] ?? "PO Supplier {$poNumber} status updated to {$status}";
+        return $bodies[$status] ?? "PO {$poNumber} status updated to {$status}";
     }
 }
