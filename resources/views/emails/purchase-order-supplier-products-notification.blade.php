@@ -549,12 +549,12 @@
         @endif
 
         {{-- Invoice Download Button - Show only for Done status --}}
-        @if (in_array($purchaseProductSupplier->status, ['Requested', 'Processing', 'Received', 'Done']))
+        @if (in_array($purchaseProductSupplier->status, ['Done']))
             <div class="invoice-section">
                 <p class="invoice-text">
                     <strong>Purchase Order Faktur</strong>
                 </p>
-                <a href="{{ route('purchase-product-supplier.faktur', ['purchaseProductSupplier' => $purchaseProductSupplier->id]) }}"
+                <a href="{{ route('purchase-product-supplier.faktur', $purchaseProductSupplier) }}"
                     class="invoice-button">
                     📄 Download Faktur
                 </a>
