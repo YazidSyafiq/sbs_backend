@@ -383,6 +383,9 @@ class ServicePurchaseResource extends Resource
                     ->label('PO Name')
                     ->searchable()
                     ->limit(25),
+                Tables\Columns\TextColumn::make('user.branch.name')
+                    ->label('Branch')
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Requested By')
                     ->searchable(),
@@ -429,7 +432,79 @@ class ServicePurchaseResource extends Resource
                     }),
             ])
             ->filters([
-                //
+                Tables\Filters\Filter::make('order_date')
+                    ->form([
+                        Forms\Components\DatePicker::make('order_from')
+                            ->label('Order Date From')
+                            ->placeholder('Select start date'),
+                        Forms\Components\DatePicker::make('order_until')
+                            ->label('Order Date Until')
+                            ->placeholder('Select end date'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query
+                            ->when(
+                                $data['order_from'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('order_date', '>=', $date),
+                            )
+                            ->when(
+                                $data['order_until'],
+                                fn (Builder $query, $date): Builder => $query->whereDate('order_date', '<=', $date),
+                            );
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $indicators = [];
+
+                        if ($data['order_from'] ?? null) {
+                            $indicators[] = Tables\Filters\Indicator::make('Order from ' . \Carbon\Carbon::parse($data['order_from'])->toFormattedDateString())
+                                ->removeField('order_from');
+                        }
+
+                        if ($data['order_until'] ?? null) {
+                            $indicators[] = Tables\Filters\Indicator::make('Order until ' . \Carbon\Carbon::parse($data['order_until'])->toFormattedDateString())
+                                ->removeField('order_until');
+                        }
+
+                        return $indicators;
+                    }),
+
+                Tables\Filters\SelectFilter::make('branch')
+                    ->relationship('user.branch', 'name')
+                    ->label('Branch')
+                    ->searchable()
+                    ->preload()
+                    ->multiple()
+                    ->placeholder('All Branches'),
+
+                Tables\Filters\SelectFilter::make('status')
+                    ->options([
+                        'Draft' => 'Draft',
+                        'Requested' => 'Requested',
+                        'Approved' => 'Approved',
+                        'In Progress' => 'In Progress',
+                        'Done' => 'Done',
+                        'Cancelled' => 'Cancelled',
+                    ])
+                    ->multiple()
+                    ->placeholder('All Status'),
+
+                Tables\Filters\SelectFilter::make('type_po')
+                    ->label('Type Purchase')
+                    ->options([
+                        'credit' => 'Credit Purchase',
+                        'cash' => 'Cash Purchase',
+                    ])
+                    ->multiple()
+                    ->placeholder('All Types'),
+
+                Tables\Filters\SelectFilter::make('status_paid')
+                    ->label('Payment Status')
+                    ->options([
+                        'unpaid' => 'Unpaid',
+                        'paid' => 'Paid',
+                    ])
+                    ->multiple()
+                    ->placeholder('All Payment Status'),
             ])
             ->actions([
                 Tables\Actions\Action::make('cancel')
