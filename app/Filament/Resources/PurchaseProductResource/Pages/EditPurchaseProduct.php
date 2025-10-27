@@ -19,4 +19,10 @@ class EditPurchaseProduct extends EditRecord
     //             ->icon('heroicon-s-eye'),
     //     ];
     // }
+
+    protected function afterSave(): void
+    {
+        // Hitung ulang total setiap kali data disimpan
+        $this->record->calculateTotal();
+    }
 }
