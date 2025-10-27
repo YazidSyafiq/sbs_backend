@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\PurchaseProductSupplier;
+use App\Models\Product;
 use App\Http\Resources\PurchaseSupplierResource;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -54,14 +55,12 @@ class PurchaseSupplierController extends Controller
         $query->orderBy('created_at', 'desc');
 
         // Pagination handling dengan limit, page, dan start
-        $limit = (int)($request->limit ?? 10); // Default 10 data per request
-        $page = (int)($request->page ?? 1); // Default page 1
+        $limit = (int)($request->limit ?? 10);
+        $page = (int)($request->page ?? 1);
 
-        // Calculate start from page if not provided
         if ($request->has('start')) {
             $start = (int)($request->start ?? 0);
         } else {
-            // Calculate start from page number
             $start = ($page - 1) * $limit;
         }
 
@@ -75,7 +74,6 @@ class PurchaseSupplierController extends Controller
         $currentPage = (int)(($start / $limit) + 1);
         $lastPage = (int)ceil($total / $limit);
 
-        // Build response dengan info pagination
         return response()->json([
             'success' => true,
             'data' => PurchaseSupplierResource::collection($purchaseProductSuppliers),
@@ -102,7 +100,6 @@ class PurchaseSupplierController extends Controller
             'id.required' => 'ID Is Required.',
         ]);
 
-        // Jika validasi gagal, kembalikan response dengan format yang diinginkan
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -111,7 +108,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
@@ -139,10 +136,11 @@ class PurchaseSupplierController extends Controller
             'order_date' => 'required|date',
             'type_po' => 'required|in:cash,credit',
             'supplier_id' => 'required|integer|exists:suppliers,id',
-            'product_id' => 'required|integer|exists:products,id',
-            'quantity' => 'required|numeric|min:0.01',
-            'unit_price' => 'required|numeric|min:0',
             'notes' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|integer|exists:products,id',
+            'items.*.quantity' => 'required|numeric|min:0.01',
+            'items.*.unit_price' => 'required|numeric|min:0',
         ], [
             'name.required' => 'PO Name Is Required.',
             'order_date.required' => 'Order Date Is Required.',
@@ -151,12 +149,16 @@ class PurchaseSupplierController extends Controller
             'type_po.in' => 'PO Type must be either cash or credit.',
             'supplier_id.required' => 'Supplier Is Required.',
             'supplier_id.exists' => 'Selected Supplier Not Found.',
-            'product_id.required' => 'Product Is Required.',
-            'product_id.exists' => 'Selected Product Not Found.',
-            'quantity.required' => 'Quantity Is Required.',
-            'quantity.min' => 'Quantity must be at least 0.01.',
-            'unit_price.required' => 'Unit Price Is Required.',
-            'unit_price.min' => 'Unit Price must be at least 0.',
+            'items.required' => 'At least one item is required.',
+            'items.min' => 'At least one item is required.',
+            'items.*.product_id.required' => 'Product ID Is Required.',
+            'items.*.product_id.exists' => 'Selected Product Not Found.',
+            'items.*.quantity.required' => 'Quantity Is Required.',
+            'items.*.quantity.numeric' => 'Quantity must be a number.',
+            'items.*.quantity.min' => 'Quantity must be at least 0.01.',
+            'items.*.unit_price.required' => 'Unit Price Is Required.',
+            'items.*.unit_price.numeric' => 'Unit Price must be a number.',
+            'items.*.unit_price.min' => 'Unit Price must be at least 0.',
         ]);
 
         if ($validator->fails()) {
@@ -177,9 +179,6 @@ class PurchaseSupplierController extends Controller
             'name' => $request->name,
             'user_id' => $user->id,
             'supplier_id' => $request->supplier_id,
-            'product_id' => $request->product_id,
-            'quantity' => $request->quantity,
-            'unit_price' => $request->unit_price,
             'order_date' => $request->order_date,
             'type_po' => $request->type_po,
             'status_paid' => 'unpaid',
@@ -187,11 +186,34 @@ class PurchaseSupplierController extends Controller
             'total_amount' => 0, // Will be calculated
         ]);
 
-        // Hitung total amount
+        // Add items
+        foreach ($request->items as $item) {
+            // Verify product exists
+            $product = Product::find($item['product_id']);
+
+            if (!$product) {
+                // Delete PO if product not found
+                $purchaseSupplier->delete();
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Product with ID ' . $item['product_id'] . ' not found'
+                ], 422);
+            }
+
+            $purchaseSupplier->items()->create([
+                'product_id' => $item['product_id'],
+                'quantity' => $item['quantity'],
+                'unit_price' => $item['unit_price'],
+                // total_price akan dihitung otomatis di model
+            ]);
+        }
+
+        // Hitung total amount setelah semua items ditambahkan
         $purchaseSupplier->calculateTotal();
 
         // Load relationships for response
-        $purchaseSupplier->load(['user', 'supplier', 'product']);
+        $purchaseSupplier->load(['user', 'supplier', 'items.product']);
 
         return response()->json([
             'success' => true,
@@ -219,7 +241,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
@@ -230,7 +252,7 @@ class PurchaseSupplierController extends Controller
             ], 404);
         }
 
-        // Check if PO can be cancelled (only Requested and Processing status can be cancelled)
+        // Check if PO can be cancelled
         if (!in_array($purchaseSupplier->status, ['Requested', 'Processing'])) {
             return response()->json([
                 'success' => false,
@@ -261,7 +283,6 @@ class PurchaseSupplierController extends Controller
             'bukti_tf.required' => 'Payment Receipt Is Required.'
         ]);
 
-        // Jika validasi gagal, kembalikan response dengan format yang diinginkan
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
@@ -270,7 +291,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
@@ -285,14 +306,12 @@ class PurchaseSupplierController extends Controller
             // Handle base64 image upload
             $imageData = $request->bukti_tf;
 
-            // Check if it's a data URL (data:image/jpeg;base64,...)
+            // Check if it's a data URL
             if (preg_match('/^data:image\/(\w+);base64,/', $imageData, $type)) {
-                // Extract the base64 encoded binary data
                 $imageData = substr($imageData, strpos($imageData, ',') + 1);
-                $type = strtolower($type[1]); // jpg, png, gif
+                $type = strtolower($type[1]);
             } else {
-                // If no data URL prefix, assume it's raw base64
-                $type = 'jpg'; // default type
+                $type = 'jpg';
             }
 
             // Validate image type
@@ -329,7 +348,6 @@ class PurchaseSupplierController extends Controller
 
             // Update purchase supplier
             $purchaseSupplier->status_paid = 'paid';
-
             $purchaseSupplier->bukti_tf = $path;
 
             if ($purchaseSupplier->save()) {
@@ -374,7 +392,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
@@ -431,7 +449,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
@@ -485,7 +503,7 @@ class PurchaseSupplierController extends Controller
         }
 
         $user = auth()->user();
-        $query = PurchaseProductSupplier::with(['user', 'supplier', 'product']);
+        $query = PurchaseProductSupplier::with(['user', 'supplier', 'items.product']);
 
         $purchaseSupplier = $query->find($request->id);
 
