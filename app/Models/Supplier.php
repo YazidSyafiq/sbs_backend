@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Log;
 
 class Supplier extends Model
 {
@@ -27,6 +28,38 @@ class Supplier extends Model
     public function purchaseProductSuppliers(): HasMany
     {
         return $this->hasMany(PurchaseProductSupplier::class);
+    }
+
+    /**
+     * Recalculate total_po dan piutang dari semua PO yang relevan
+     */
+    public function recalculateTotals(): void
+    {
+        // Hitung total_po dari semua PO dengan status Processing, Received, Done
+        $totalPo = PurchaseProductSupplier::where('supplier_id', $this->id)
+            ->whereIn('status', ['Processing', 'Received', 'Done'])
+            ->sum('total_amount');
+
+        // Hitung piutang dari semua PO credit yang unpaid dengan status Processing, Received, Done
+        $piutang = PurchaseProductSupplier::where('supplier_id', $this->id)
+            ->where('type_po', 'credit')
+            ->where('status_paid', 'unpaid')
+            ->whereIn('status', ['Processing', 'Received', 'Done'])
+            ->sum('total_amount');
+
+        // Update ke database
+        $this->update([
+            'total_po' => $totalPo,
+            'piutang' => max(0, $piutang), // Pastikan tidak negatif
+        ]);
+
+        Log::info("Supplier totals recalculated", [
+            'supplier_id' => $this->id,
+            'supplier_code' => $this->code,
+            'supplier_name' => $this->name,
+            'total_po' => $totalPo,
+            'piutang' => $piutang,
+        ]);
     }
 
     // Auto generate supplier code

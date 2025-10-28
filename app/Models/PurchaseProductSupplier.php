@@ -51,7 +51,6 @@ class PurchaseProductSupplier extends Model
         return $this->hasMany(PurchaseProductSupplierItem::class);
     }
 
-    // TAMBAHAN: Relationship ke ProductBatch
     public function productBatches(): HasMany
     {
         return $this->hasMany(ProductBatch::class);
@@ -71,35 +70,70 @@ class PurchaseProductSupplier extends Model
         });
 
         static::updating(function ($purchaseProductSupplier) {
-            if ($purchaseProductSupplier->isDirty('status_paid') || $purchaseProductSupplier->isDirty('bukti_tf')) {
+            // Handle perubahan payment status atau bukti transfer
+            if ($purchaseProductSupplier->isDirty('status_paid') ||
+                $purchaseProductSupplier->isDirty('bukti_tf')) {
                 $purchaseProductSupplier->handlePaymentStatusChange();
+            }
+
+            // Log perubahan total_amount saat status sudah Processing/Received/Done
+            if ($purchaseProductSupplier->isDirty('total_amount') &&
+                in_array($purchaseProductSupplier->status, ['Processing', 'Received', 'Done'])) {
+
+                Log::info("PO total_amount changed, will recalculate supplier", [
+                    'po_number' => $purchaseProductSupplier->po_number,
+                    'old_total' => $purchaseProductSupplier->getOriginal('total_amount'),
+                    'new_total' => $purchaseProductSupplier->total_amount,
+                    'status' => $purchaseProductSupplier->status,
+                ]);
             }
         });
 
-        // ===== TAMBAHAN: SOFT DELETE CASCADE =====
+        static::updated(function ($purchaseProductSupplier) {
+            // Recalculate setelah total_amount berubah
+            if ($purchaseProductSupplier->wasChanged('total_amount') &&
+                in_array($purchaseProductSupplier->status, ['Processing', 'Received', 'Done'])) {
+
+                if ($purchaseProductSupplier->supplier) {
+                    $purchaseProductSupplier->supplier->recalculateTotals();
+                }
+            }
+        });
+
+        // Soft delete cascade
         static::deleting(function ($purchaseProductSupplier) {
-            // Cek apakah ini soft delete atau force delete
             if (!$purchaseProductSupplier->isForceDeleting()) {
-                // Jika soft delete, cascade soft delete ke ProductBatch
                 Log::info("Soft deleting ProductBatches for PO", [
                     'po_number' => $purchaseProductSupplier->po_number,
                     'batches_count' => $purchaseProductSupplier->productBatches()->count()
                 ]);
 
                 $purchaseProductSupplier->productBatches()->delete();
+
+                // Recalculate supplier totals setelah soft delete
+                if ($purchaseProductSupplier->supplier &&
+                    in_array($purchaseProductSupplier->status, ['Processing', 'Received', 'Done'])) {
+                    $purchaseProductSupplier->supplier->recalculateTotals();
+                }
             }
-            // Jika force delete, biarkan database cascade (onDelete cascade) yang handle
         });
 
-        // ===== TAMBAHAN: RESTORE CASCADE =====
+        // Restore cascade
         static::restoring(function ($purchaseProductSupplier) {
-            // Ketika PO di-restore, restore juga ProductBatch yang terkait
             Log::info("Restoring ProductBatches for PO", [
                 'po_number' => $purchaseProductSupplier->po_number,
                 'trashed_batches_count' => $purchaseProductSupplier->productBatches()->onlyTrashed()->count()
             ]);
 
             $purchaseProductSupplier->productBatches()->onlyTrashed()->restore();
+        });
+
+        static::restored(function ($purchaseProductSupplier) {
+            // Recalculate supplier totals setelah restore
+            if ($purchaseProductSupplier->supplier &&
+                in_array($purchaseProductSupplier->status, ['Processing', 'Received', 'Done'])) {
+                $purchaseProductSupplier->supplier->recalculateTotals();
+            }
         });
     }
 
@@ -121,37 +155,16 @@ class PurchaseProductSupplier extends Model
         $oldStatusPaid = $this->getOriginal('status_paid');
         $newStatusPaid = $this->status_paid;
 
-        if ($oldStatusPaid === 'unpaid' && $newStatusPaid === 'paid') {
-            Log::info("Payment status changed to paid, reducing piutang", [
+        // Hanya recalculate jika memang ada perubahan payment status
+        if ($oldStatusPaid !== $newStatusPaid) {
+            Log::info("Payment status changed, recalculating supplier totals", [
                 'po_number' => $this->po_number,
+                'old_status' => $oldStatusPaid,
+                'new_status' => $newStatusPaid,
                 'amount' => $this->total_amount,
-                'old_piutang' => $supplier->piutang
             ]);
 
-            $supplier->update([
-                'piutang' => max(0, $supplier->piutang - $this->total_amount),
-            ]);
-
-            Log::info("Piutang updated", [
-                'po_number' => $this->po_number,
-                'new_piutang' => $supplier->fresh()->piutang
-            ]);
-        }
-        elseif ($oldStatusPaid === 'paid' && $newStatusPaid === 'unpaid') {
-            Log::info("Payment status changed to unpaid, increasing piutang", [
-                'po_number' => $this->po_number,
-                'amount' => $this->total_amount,
-                'old_piutang' => $supplier->piutang
-            ]);
-
-            $supplier->update([
-                'piutang' => $supplier->piutang + $this->total_amount,
-            ]);
-
-            Log::info("Piutang updated", [
-                'po_number' => $this->po_number,
-                'new_piutang' => $supplier->fresh()->piutang
-            ]);
+            $supplier->recalculateTotals();
         }
     }
 
@@ -200,7 +213,6 @@ class PurchaseProductSupplier extends Model
         return "PO/{$supplierCode}/{$yearMonth}/" . str_pad(time() % 10000, 4, '0', STR_PAD_LEFT);
     }
 
-    // Calculate total from items
     public function calculateTotal(): void
     {
         $this->total_amount = $this->items()->sum('total_price');
@@ -215,46 +227,26 @@ class PurchaseProductSupplier extends Model
             }
         }
 
-        if ($this->supplier) {
-            $supplier = Supplier::where('id', $this->supplier_id)->first();
-
-            $supplier->update([
-                'total_po' => $supplier->total_po + $this->total_amount,
-            ]);
-
-            if ($this->type_po === 'credit') {
-                if ($this->status_paid === 'unpaid') {
-                    $supplier->update([
-                        'piutang' => $supplier->piutang + $this->total_amount,
-                    ]);
-                }
-            }
-        }
-
         $this->status = 'Processing';
         $this->save();
+
+        // Recalculate supplier totals
+        if ($this->supplier) {
+            $this->supplier->recalculateTotals();
+        }
 
         $this->sendStatusChangeEmail();
     }
 
     public function cancel(): void
     {
-        if ($this->status === 'Processing' && $this->supplier) {
-            $supplier = Supplier::where('id', $this->supplier_id)->first();
-
-            $supplier->update([
-                'total_po' => $supplier->total_po - $this->total_amount,
-            ]);
-
-            if($this->type_po === 'credit' && $this->status_paid === 'unpaid'){
-                $supplier->update([
-                    'piutang' => max(0, $supplier->piutang - $this->total_amount),
-                ]);
-            }
-        }
-
         $this->status = 'Cancelled';
         $this->save();
+
+        // Recalculate supplier totals
+        if ($this->supplier) {
+            $this->supplier->recalculateTotals();
+        }
 
         $this->sendStatusChangeEmail();
     }
@@ -271,6 +263,11 @@ class PurchaseProductSupplier extends Model
         // Buat ProductBatch untuk setiap item
         foreach ($this->items as $item) {
             $this->createProductBatch($item);
+        }
+
+        // Recalculate supplier totals
+        if ($this->supplier) {
+            $this->supplier->recalculateTotals();
         }
 
         $this->sendStatusChangeEmail();
@@ -303,6 +300,11 @@ class PurchaseProductSupplier extends Model
 
         $this->status = 'Done';
         $this->save();
+
+        // Recalculate supplier totals
+        if ($this->supplier) {
+            $this->supplier->recalculateTotals();
+        }
 
         $this->sendStatusChangeEmail();
     }
