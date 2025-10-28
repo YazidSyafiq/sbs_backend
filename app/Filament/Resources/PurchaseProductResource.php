@@ -604,18 +604,34 @@ class PurchaseProductResource extends Resource
                             $title = "Cannot Process {$record->po_number}";
                             $message = "";
 
+                            // Handle validation errors
                             if (!empty($processCheck['validation_errors'])) {
                                 foreach ($processCheck['validation_errors'] as $error) {
                                     $message .= "⚠️ {$error}<br><br>";
                                 }
                             }
 
+                            // Handle insufficient stock
                             if (!empty($processCheck['insufficient_items'])) {
                                 $insufficientCount = count($processCheck['insufficient_items']);
                                 $message .= "{$insufficientCount} item(s) have insufficient stock:<br><br>";
 
                                 foreach ($processCheck['insufficient_items'] as $item) {
                                     $message .= "• {$item['product_name']} ({$item['product_code']}) - Need: <strong style='color:red;'>{$item['shortage']}</strong><br>";
+                                }
+                            }
+
+                            // Handle zero cost price batches
+                            if (!empty($processCheck['zero_cost_batches'])) {
+                                $zeroCostCount = count($processCheck['zero_cost_batches']);
+                                $message .= "<br>{$zeroCostCount} item(s) have batches with zero cost price:<br><br>";
+
+                                foreach ($processCheck['zero_cost_batches'] as $batch) {
+                                    $message .= "• <strong>{$batch['product_name']}</strong> ({$batch['product_code']})<br>";
+                                    $message .= "&nbsp;&nbsp;Batch: <code>{$batch['batch_number']}</code><br>";
+                                    $message .= "&nbsp;&nbsp;From PO: <strong>{$batch['po_supplier_number']}</strong><br>";
+                                    $message .= "&nbsp;&nbsp;Supplier: {$batch['supplier_name']} ({$batch['supplier_code']})<br>";
+                                    $message .= "&nbsp;&nbsp;<em style='color:#f59e0b;'>⚠️ Please update unit price in supplier PO before processing</em><br><br>";
                                 }
                             }
 
