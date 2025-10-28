@@ -296,8 +296,7 @@ class PurchaseProductSupplierResource extends Resource
                             ->searchable()
                             ->preload()
                             ->dehydrated()
-                            ->disabled(fn (Get $get) => $get('status') === 'Done')
-                            ->required(),
+                            ->disabled(fn (Get $get) => $get('status') === 'Done'),
                         Forms\Components\FileUpload::make('bukti_tf')
                             ->label('Upload Invoice From Supplier')
                             ->maxSize(3072)
@@ -307,7 +306,6 @@ class PurchaseProductSupplierResource extends Resource
                             ->downloadable()
                             ->disabled(fn (Get $get) => $get('status') === 'Done')
                             ->directory('po_supplier')
-                            ->required()
                             ->image(),
                     ]),
                 Textarea::make('notes')
