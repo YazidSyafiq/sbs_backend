@@ -51,6 +51,12 @@ class PurchaseProductSupplier extends Model
         return $this->hasMany(PurchaseProductSupplierItem::class);
     }
 
+    // TAMBAHAN: Relationship ke ProductBatch
+    public function productBatches(): HasMany
+    {
+        return $this->hasMany(ProductBatch::class);
+    }
+
     protected static function boot()
     {
         parent::boot();
@@ -68,6 +74,32 @@ class PurchaseProductSupplier extends Model
             if ($purchaseProductSupplier->isDirty('status_paid') || $purchaseProductSupplier->isDirty('bukti_tf')) {
                 $purchaseProductSupplier->handlePaymentStatusChange();
             }
+        });
+
+        // ===== TAMBAHAN: SOFT DELETE CASCADE =====
+        static::deleting(function ($purchaseProductSupplier) {
+            // Cek apakah ini soft delete atau force delete
+            if (!$purchaseProductSupplier->isForceDeleting()) {
+                // Jika soft delete, cascade soft delete ke ProductBatch
+                Log::info("Soft deleting ProductBatches for PO", [
+                    'po_number' => $purchaseProductSupplier->po_number,
+                    'batches_count' => $purchaseProductSupplier->productBatches()->count()
+                ]);
+
+                $purchaseProductSupplier->productBatches()->delete();
+            }
+            // Jika force delete, biarkan database cascade (onDelete cascade) yang handle
+        });
+
+        // ===== TAMBAHAN: RESTORE CASCADE =====
+        static::restoring(function ($purchaseProductSupplier) {
+            // Ketika PO di-restore, restore juga ProductBatch yang terkait
+            Log::info("Restoring ProductBatches for PO", [
+                'po_number' => $purchaseProductSupplier->po_number,
+                'trashed_batches_count' => $purchaseProductSupplier->productBatches()->onlyTrashed()->count()
+            ]);
+
+            $purchaseProductSupplier->productBatches()->onlyTrashed()->restore();
         });
     }
 

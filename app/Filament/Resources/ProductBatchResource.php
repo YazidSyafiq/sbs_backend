@@ -112,27 +112,21 @@ class ProductBatchResource extends Resource
             ->defaultSort('id', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('batch_number')
-                    ->label('Batch Number')
-                    ->searchable(),
+                    ->label('Batch Number'),
                 Tables\Columns\TextColumn::make('product.name')
                     ->label('Product')
                     ->formatStateUsing(fn ($record) =>
                         $record->product
                             ? $record->product->name . ' (' . $record->product->code . ')'
-                            : '-'
-                    )
-                    ->searchable(['product.name', 'product.code']),
+                            : '-'),
                 Tables\Columns\TextColumn::make('purchaseProductSupplier.po_number')
-                    ->label('PO Number')
-                    ->searchable(),
+                    ->label('PO Number'),
                 Tables\Columns\TextColumn::make('supplier.name')
                     ->label('Supplier')
                     ->formatStateUsing(fn ($record) =>
                         $record->supplier
                             ? $record->supplier->name . ' (' . $record->supplier->code . ')'
-                            : '-'
-                    )
-                    ->searchable(),
+                            : '-'),
                 Tables\Columns\TextColumn::make('quantity')
                     ->label('Stock')
                     ->badge()
@@ -177,7 +171,6 @@ class ProductBatchResource extends Resource
                     ->relationship('product', 'name')
                     ->label('Product')
                     ->getOptionLabelFromRecordUsing(fn ($record) => $record->name . ' (' . $record->code . ')')
-                    ->searchable()
                     ->preload(),
                 Tables\Filters\Filter::make('low_stock')
                     ->label('Low Stock')

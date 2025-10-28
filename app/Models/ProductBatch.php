@@ -100,7 +100,7 @@ class ProductBatch extends Model
                 ->first();
 
             if ($lastBatch) {
-                // Extract nomor dari PO number terakhir
+                // Extract nomor dari batch number terakhir
                 $lastNumber = (int) substr($lastBatch->batch_number, strrpos($lastBatch->batch_number, '/') + 1);
                 $nextNumber = $lastNumber + 1;
             }
