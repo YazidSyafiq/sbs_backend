@@ -159,7 +159,7 @@ class PurchaseProductSupplierResource extends Resource
                                     ->preload()
                                     ->required()
                                     ->live()
-                                    ->disabled(fn (Get $get) => $get('../../status') === 'Done' || $get('../../status') === 'Cancelled')
+                                    ->disabled(fn (Get $get) => in_array($get('../../status'), ['Done', 'Cancelled']))
                                     ->afterStateUpdated(function ($state, Set $set) {
                                         // Optional: bisa set default unit price jika ada
                                     }),
@@ -185,7 +185,7 @@ class PurchaseProductSupplierResource extends Resource
                                         return $product?->unit ?? 'pcs';
                                     })
                                     ->dehydrated()
-                                    ->disabled(fn (Get $get) => $get('../../status') === 'Done' || $get('../../status') === 'Cancelled')
+                                    ->disabled(fn (Get $get) => in_array($get('../../status'), ['Done', 'Cancelled']))
                                     ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                         $unitPrice = $get('unit_price') ?? 0;
                                         $set('total_price', $state * $unitPrice);
@@ -196,7 +196,7 @@ class PurchaseProductSupplierResource extends Resource
                                     ->prefix('Rp')
                                     ->required()
                                     ->live()
-                                    ->disabled(fn (Get $get) => $get('../../status') === 'Done' || $get('../../status') === 'Cancelled')
+                                    ->disabled(fn (Get $get) => in_array($get('../../status'), ['Done', 'Cancelled']))
                                     ->afterStateUpdated(function ($state, Get $get, Set $set) {
                                         $quantity = $get('quantity') ?? 0;
                                         $set('total_price', $quantity * $state);
@@ -215,8 +215,8 @@ class PurchaseProductSupplierResource extends Resource
                                     ->label('Add Product')
                                     ->icon('heroicon-m-plus')
                             )
-                            ->disabled(fn (Get $get) => $get('status') !== 'Requested')
-                            ->deletable(fn (Get $get) => $get('status') === 'Requested')
+                            ->disabled(fn (Get $get) => in_array($get('status'), ['Done', 'Cancelled']))
+                            ->deletable(fn (Get $get) => !in_array($get('status'), ['Done', 'Cancelled']))
                             ->reorderable()
                             ->collapsible()
                             ->minItems(1)
