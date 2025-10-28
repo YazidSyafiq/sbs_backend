@@ -14,5 +14,13 @@ class EditPurchaseProductSupplier extends EditRecord
     {
         // Hitung ulang total setiap kali data disimpan
         $this->record->calculateTotal();
+
+        if ($this->record->wasChanged('status_paid') &&
+            in_array($this->record->status, ['Processing', 'Received', 'Done'])) {
+
+            if ($this->record->supplier) {
+                $this->record->supplier->recalculateTotals();
+            }
+        }
     }
 }
