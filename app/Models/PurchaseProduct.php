@@ -160,6 +160,52 @@ class PurchaseProduct extends Model
         return true;
     }
 
+    /**
+     * Get batches with zero cost price that will be consumed by this PO
+     */
+    private function getZeroCostBatches(): array
+    {
+        $zeroCostBatches = [];
+
+        foreach ($this->items as $item) {
+            $quantityNeeded = $item->quantity;
+            $remainingQuantity = $quantityNeeded;
+
+            // Simulate FIFO consumption
+            $batches = ProductBatch::where('product_id', $item->product_id)
+                ->where('quantity', '>', 0)
+                ->orderBy('entry_date', 'asc')
+                ->orderBy('created_at', 'asc')
+                ->get();
+
+            foreach ($batches as $batch) {
+                if ($remainingQuantity <= 0) {
+                    break;
+                }
+
+                $consumeFromBatch = min($remainingQuantity, $batch->quantity);
+
+                // Check if this batch has zero cost
+                if ($batch->cost_price <= 0) {
+                    $zeroCostBatches[] = [
+                        'product_name' => $item->product->name,
+                        'product_code' => $item->product->code,
+                        'batch_number' => $batch->batch_number,
+                        'batch_quantity' => $batch->quantity,
+                        'batch_cost_price' => $batch->cost_price,
+                        'po_supplier_number' => $batch->purchaseProductSupplier?->po_number ?? 'N/A',
+                        'supplier_name' => $batch->supplier?->name ?? 'Unknown',
+                        'supplier_code' => $batch->supplier?->code ?? 'N/A',
+                    ];
+                }
+
+                $remainingQuantity -= $consumeFromBatch;
+            }
+        }
+
+        return $zeroCostBatches;
+    }
+
     // Check apakah bisa di-process berdasarkan ProductBatch
     public function canBeProcessed(): array
     {
@@ -182,10 +228,14 @@ class PurchaseProduct extends Model
             }
         }
 
+        // Check for zero cost price batches
+        $zeroCostBatches = $this->getZeroCostBatches();
+
         return [
-            'can_process' => empty($insufficientItems) && empty($validationErrors),
+            'can_process' => empty($insufficientItems) && empty($validationErrors) && empty($zeroCostBatches),
             'insufficient_items' => $insufficientItems,
             'validation_errors' => $validationErrors,
+            'zero_cost_batches' => $zeroCostBatches,
         ];
     }
 
