@@ -32,29 +32,33 @@ class Product extends Model
         return $this->belongsTo(Code::class, 'code_id');
     }
 
+    // ===== RELATIONSHIPS =====
+    // Relationship untuk semua product batches (exclude soft deleted batches)
     public function productBatches(): HasMany
     {
         return $this->hasMany(ProductBatch::class);
     }
 
-    // Relationship untuk active batches only (stock > 0)
+    // Relationship untuk active batches only (stock > 0 dan tidak soft deleted)
     public function activeProductBatches(): HasMany
     {
         return $this->hasMany(ProductBatch::class)->where('quantity', '>', 0);
     }
 
+    // Alias untuk available batches (sama dengan active)
     public function availableProductBatches(): HasMany
     {
         return $this->hasMany(ProductBatch::class)->where('quantity', '>', 0);
     }
 
-    // Get total stock dari semua batch
+    // ===== ACCESSORS =====
+    // Get total stock dari semua batch (tidak termasuk soft deleted)
     public function getTotalStockAttribute(): int
     {
         return $this->productBatches()->sum('quantity');
     }
 
-    // Get available stock (stock > 0)
+    // Get available stock (stock > 0, tidak termasuk soft deleted)
     public function getAvailableStockAttribute(): int
     {
         return $this->productBatches()->where('quantity', '>', 0)->sum('quantity');
@@ -122,6 +126,7 @@ class Product extends Model
         }
     }
 
+    // ===== METHODS =====
     // Method untuk generate code
     public static function generateCode($codeTemplateId): string
     {
@@ -151,10 +156,12 @@ class Product extends Model
 
     /**
      * Update batch numbers ketika product code berubah
+     * Include soft deleted batches untuk memastikan semua batch ter-update
      */
     public function updateProductBatchNumbers(): void
     {
-        $batches = $this->productBatches()->get();
+        // Include soft deleted batches karena batch number harus tetap konsisten
+        $batches = $this->productBatches()->withTrashed()->get();
 
         foreach ($batches as $batch) {
             $oldBatchNumber = $batch->batch_number;
@@ -169,7 +176,7 @@ class Product extends Model
                 // Rebuild batch number
                 $newBatchNumber = implode('/', $parts);
 
-                // Update batch number
+                // Update batch number (even if soft deleted)
                 $batch->update([
                     'batch_number' => $newBatchNumber
                 ]);
