@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ProductAnalyticReport extends Model
@@ -137,7 +136,7 @@ class ProductAnalyticReport extends Model
 
     public function getRequestedAttribute(): int
     {
-        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+        return PurchaseProductSupplierItem::whereHas('purchaseProductSupplier', function ($query) {
                 $query->where('status', 'Requested');
             })
             ->where('product_id', $this->id)
@@ -146,7 +145,7 @@ class ProductAnalyticReport extends Model
 
     public function getProcessingAttribute(): int
     {
-        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+        return PurchaseProductSupplierItem::whereHas('purchaseProductSupplier', function ($query) {
                 $query->where('status', 'Processing');
             })
             ->where('product_id', $this->id)
@@ -155,7 +154,7 @@ class ProductAnalyticReport extends Model
 
     public function getShippedAttribute(): int
     {
-        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+        return PurchaseProductSupplierItem::whereHas('purchaseProductSupplier', function ($query) {
                 $query->where('status', 'Shipped');
             })
             ->where('product_id', $this->id)
@@ -164,7 +163,7 @@ class ProductAnalyticReport extends Model
 
     public function getReceivedAttribute(): int
     {
-        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+        return PurchaseProductSupplierItem::whereHas('purchaseProductSupplier', function ($query) {
                 $query->where('status', 'Received');
             })
             ->where('product_id', $this->id)
@@ -173,7 +172,7 @@ class ProductAnalyticReport extends Model
 
     public function getDoneAttribute(): int
     {
-        return PurchaseProductItem::whereHas('purchaseProduct', function ($query) {
+        return PurchaseProductSupplierItem::whereHas('purchaseProductSupplier', function ($query) {
                 $query->where('status', 'Done');
             })
             ->where('product_id', $this->id)
@@ -398,7 +397,7 @@ class ProductAnalyticReport extends Model
     }
 
     /**
-     * Get entry trend data from PurchaseProductSupplier
+     * Get entry trend data from PurchaseProductSupplierItem
      */
     public static function getProductEntryTrend($filters = [], $days = 30)
     {
@@ -414,16 +413,24 @@ class ProductAnalyticReport extends Model
             return (object)['labels' => [], 'data' => []];
         }
 
-        // Get daily entry data from PurchaseProductSupplier
-        $dailyEntries = PurchaseProductSupplier::whereIn('product_id', $productIds)
-            ->whereIn('status', ['Received', 'Done'])
-            ->whereNotNull('received_date')
-            ->whereBetween('received_date', [$startDate, $endDate])
-            ->selectRaw('DATE(received_date) as date, SUM(quantity) as total_quantity')
-            ->groupByRaw('DATE(received_date)')
-            ->orderBy('date')
-            ->get()
-            ->keyBy('date');
+        // Get all items with PO status Received or Done within date range
+        $items = PurchaseProductSupplierItem::whereIn('product_id', $productIds)
+            ->whereHas('purchaseProductSupplier', function($query) use ($startDate, $endDate) {
+                $query->whereIn('status', ['Received', 'Done'])
+                    ->whereNotNull('received_date')
+                    ->whereBetween('received_date', [$startDate, $endDate]);
+            })
+            ->with(['purchaseProductSupplier' => function($query) {
+                $query->select('id', 'received_date');
+            }])
+            ->get();
+
+        // Group by date and sum quantities
+        $dailyEntries = $items->groupBy(function($item) {
+            return Carbon::parse($item->purchaseProductSupplier->received_date)->format('Y-m-d');
+        })->map(function($dayItems) {
+            return $dayItems->sum('quantity');
+        });
 
         // Fill missing dates with zero
         $trendData = [];
@@ -433,7 +440,7 @@ class ProductAnalyticReport extends Model
             $dateStr = $date->format('Y-m-d');
             $displayDate = $date->format('d M');
 
-            $quantity = $dailyEntries->get($dateStr)?->total_quantity ?? 0;
+            $quantity = $dailyEntries->get($dateStr) ?? 0;
 
             $labels[] = $displayDate;
             $trendData[] = (int) $quantity;
